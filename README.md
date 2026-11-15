@@ -9,16 +9,31 @@ Um cantinho em roxo e lilás para organizar a vida, guardar boas histórias e cu
 - **Treinos:** criar/editar treinos, dias da semana, exercícios, séries, repetições, carga, descanso, notas e histórico de conclusão diária.
 - **Conta:** email/senha, confirmação, recuperação de acesso e dados separados por usuário.
 - **PWA + Web Push:** instalar no celular e receber lembretes com a página fechada, após configuração e permissão.
-- **Prévia:** sem configuração, mostra uma demonstração interativa em memória. Ela **não salva dados** e **não envia notificações**. A conta real começa vazia.
+- **Login obrigatório:** a versão publicada não tem mais atividades de demonstração. Sem conexão com o banco, ela informa a pendência e não simula salvamento.
 
 ## Publicar na Vercel — configuração necessária
 
-Somente importar o GitHub publica a prévia. Para ativar o banco, login, fotos e notificações reais, complete os passos abaixo. Não publique chaves privadas em arquivos do repositório e não use prefixo `VITE_` em segredos.
+Importar o GitHub publica a interface. Para ativar banco, login, fotos e notificações reais, complete os passos abaixo. Sem as credenciais do Supabase, o login mostra “Falta conectar o banco de dados”. Não publique chaves privadas em arquivos do repositório e não use prefixo `VITE_` em segredos.
+
+### Correção de salvamento e conexão automática
+
+O site agora lê a configuração pública em `/api/config`, no servidor. Isso permite usar diretamente os nomes criados pela integração oficial Supabase/Vercel, sem depender do prefixo Vite:
+
+- URL: `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL` ou `VITE_SUPABASE_URL`.
+- Chave pública: `SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` ou `VITE_SUPABASE_ANON_KEY`.
+- Web Push público: `VAPID_PUBLIC_KEY` ou `VITE_VAPID_PUBLIC_KEY`.
+
+`service_role` e `sb_secret_` nunca são devolvidas por esse endpoint. **Conectar Supabase na sua conta Vercel não basta:** vincule o banco especificamente ao projeto **rayza** e ao ambiente **Production**, confirme que as variáveis apareceram e faça redeploy.
+
+Depois de conectar, crie a conta dela e entre **com o mesmo e-mail e senha no celular e no computador**. O login permanece salvo no navegador. As telas consultam o banco ao entrar, ao voltar para a página e a cada 15 segundos enquanto ela estiver visível; uma edição aberta não é substituída por essa atualização.
+
+As ações de salvar/excluir só apresentam sucesso após confirmação do banco. Falhas mantêm os campos para tentar novamente. O mesmo identificador é reutilizado se a resposta de um salvamento se perder, reduzindo duplicações. Tocar no fundo não fecha o formulário; cancelar com mudanças pede confirmação. Filtros são limpos após salvar um compromisso, para que ele não desapareça por ter mudado de dia.
 
 ### 1. Criar o banco no Supabase
 
 1. Crie um projeto em [supabase.com](https://supabase.com/dashboard).
 2. No **SQL Editor**, execute o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) **uma vez**. Ele cria tabelas, políticas por usuário, fila de notificações e bucket **privado** `memories`.
+   - Se já executou esse schema na primeira versão, **não execute novamente**: aplique apenas [`supabase/migrations/20261115_notification_status.sql`](supabase/migrations/20261115_notification_status.sql), que acrescenta o diagnóstico do agendador sem apagar dados.
 3. Em **Project Settings → API**, copie a URL, a chave pública `anon` e a chave privada `service_role`. Use as chaves correspondentes disponíveis em “Legacy API keys” se o painel apresentar também as novas publishable/secret keys.
 4. Em **Authentication → URL Configuration**, defina **Site URL** e a URL de redirecionamento com seu endereço de produção (ex.: `https://rayza.vercel.app`). Para desenvolvimento, adicione `http://localhost:5173` nas URLs de redirecionamento.
 5. Mantenha confirmação de email ativada. Configure um provedor SMTP em **Authentication → Email** para envio de emails de confirmação/recuperação em produção; o serviço padrão tem limites para testes.
@@ -82,7 +97,8 @@ Usamos **Supabase Cron + pg_net → função na Vercel**. Assim o envio independ
 2. Toque no sino → **Ativar neste aparelho** → permita notificações.
 3. **iPhone/iPad (iOS 16.4+):** primeiro abra pelo Safari → Compartilhar → **Adicionar à Tela de Início**. Abra pelo ícone instalado e então ative os avisos.
 4. **Android/computador:** use Chrome/Edge/Firefox ou outro navegador compatível; instalar é recomendado no celular.
-5. O botão **Testar neste aparelho** testa permissão/exibição local. Ele não comprova o caminho do agendador/servidor.
+5. O botão **Enviar teste pelo servidor** faz um pedido autenticado a `/api/push-test`, que envia um Web Push real à inscrição desse aparelho. Confira se o aviso apareceu na central de notificações.
+6. Em **Verificar configuração**, o site mostra separadamente a inscrição do aparelho, a configuração do servidor e se o agendador rodou nos últimos 3 minutos. Servidor configurado sozinho não significa que o cron está ativo.
 
 **Teste completo de produção:** cadastre um compromisso para daqui a 3 minutos, escolha “No horário”, feche a página, mantenha internet e aguarde. Confira a notificação e os registros em `reminder_jobs` (`sent`) e `reminder_deliveries`, junto aos logs da função Vercel e respostas do cron. Edite, conclua ou exclua outro compromisso antes do horário e confirme que o aviso anterior foi cancelado.
 
@@ -114,7 +130,7 @@ npm run build
 npm run preview
 ```
 
-Sem variáveis, você pode explorar a demo. As funções `/api` executam na Vercel; para testá-las localmente use o ambiente Node/serverless apropriado. Não há backend persistente em memória nem banco em JavaScript: a persistência é Postgres + Storage do Supabase.
+Sem variáveis, aparece a página de conexão pendente. As funções `/api` executam na Vercel; para testá-las localmente use o ambiente Node/serverless apropriado. No Vite local, as variáveis públicas `VITE_` de `.env.local` continuam disponíveis como alternativa. Não há banco persistente em memória: a persistência é Postgres + Storage do Supabase.
 
 ### Organização
 
@@ -122,10 +138,14 @@ Sem variáveis, você pode explorar a demo. As funções `/api` executam na Verc
 index.html             HTML e metadados
 src/app.js             interface e fluxos das três abas
 src/style.css          tema roxo/lilás e responsividade
-src/store.js           autenticação/banco, fotos e demo
+src/store.js           autenticação/banco, fotos e configuração
+src/auth-view.js       página de login/cadastro/recuperação
 src/push.js            inscrição dos aparelhos
 src/domain.js          validações e datas
 api/reminders.js       função Vercel de envio
+api/config.js          configuração pública compatível com integração Vercel
+api/push-test.js       teste real de envio ao aparelho, autenticado
+api/notification-status.js diagnóstico do servidor/agendador
 server/push.js         validação de endpoints e entrega
 public/sw.js           recebimento de push
 supabase/schema.sql    tabelas, RLS, bucket e fila
@@ -133,4 +153,4 @@ supabase/scheduler.sql cron por minuto, com segredos do Vault
 tests/                 testes de validação, entrega e fluxos
 ```
 
-As fotos reais ficam no bucket privado; URLs assinadas expiram após 1 hora e são atualizadas durante o uso. A aplicação não faz cache de dados privados no service worker. Fontes do Google são opcionais para o visual: há fontes alternativas locais. Ilustrações da demo foram criadas para este projeto e são identificadas como exemplos.
+As fotos reais ficam no bucket privado; URLs assinadas expiram após 1 hora e são atualizadas durante o uso. A aplicação não faz cache de dados privados no service worker. Fontes do Google são opcionais para o visual: há fontes alternativas locais. As antigas ilustrações de exemplo não aparecem nas contas reais.

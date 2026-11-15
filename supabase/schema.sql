@@ -89,6 +89,13 @@ create policy "own photos insert" on storage.objects for insert to authenticated
 create policy "own photos delete" on storage.objects for delete to authenticated using(bucket_id='memories' and (storage.foldername(name))[1]=auth.uid()::text);
 
 -- A fila só é acessível por service_role. Clientes não podem disparar notificações arbitrárias.
+create table public.reminder_runtime (
+  id text primary key check(id='scheduler'),
+  last_run_at timestamptz not null default now()
+);
+alter table public.reminder_runtime enable row level security;
+revoke all on public.reminder_runtime from anon,authenticated;
+grant all on public.reminder_runtime to service_role;
 create table public.reminder_jobs (
   id uuid primary key default gen_random_uuid(),
   appointment_id uuid not null references public.appointments on delete cascade,

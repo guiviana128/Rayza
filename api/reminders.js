@@ -1,6 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import webpush from 'web-push';
 import {authorized,deliverToDevices,ownsClaim} from '../server/push.js';
+import {resolveConfig} from '../server/config.js';
 
 const must=async query=>{const {data,error}=await query;if(error) throw error;return data;};
 
@@ -8,15 +9,17 @@ export default async function handler(req,res) {
   res.setHeader('Cache-Control','no-store');
   if(!['POST','GET'].includes(req.method)) return res.status(405).json({error:'Method not allowed'});
   if(!authorized(req.headers.authorization,process.env.CRON_SECRET)) return res.status(401).json({error:'Unauthorized'});
-  const required=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY','VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT'];
-  if(required.some(key=>!process.env[key])) return res.status(503).json({error:'Configure database and push environment variables.'});
-  const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+  const config=resolveConfig();
+  if(!config.pushConfigured) return res.status(503).json({error:'Configure database and push environment variables.'});
+  const db=createClient(config.supabaseUrl,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
   const deadline=Date.now()+45000;
   let processed=0,failed=0;
   try {
-    webpush.setVapidDetails(process.env.VAPID_SUBJECT,process.env.VAPID_PUBLIC_KEY,process.env.VAPID_PRIVATE_KEY);
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT,config.vapidPublicKey,process.env.VAPID_PRIVATE_KEY);
     // Pequenos lotes: evitar que o último job fique sem tempo em funções serverless.
     const jobs=await must(db.rpc('claim_reminder_jobs',{batch_size:5}));
+    // O diagnóstico só indica agendador ativo depois de uma consulta válida à fila.
+    await db.from('reminder_runtime').upsert({id:'scheduler',last_run_at:new Date().toISOString()});
     for(const job of jobs) {
       if(Date.now()>deadline) break; // lease expira e o próximo tick recupera o job.
       // Fencing: um worker antigo nunca altera um lease que já foi recuperado.

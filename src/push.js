@@ -1,4 +1,4 @@
-import {db,checked} from './store.js';
+import {db,checked,publicConfig} from './store.js';
 
 function keyBytes(base64) {
   const value=base64.replace(/-/g,'+').replace(/_/g,'/');
@@ -9,7 +9,7 @@ export async function enablePush(user) {
   const ios=/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   if(ios && !matchMedia('(display-mode: standalone)').matches && !navigator.standalone) throw Error('No iPhone: abra no Safari, toque em Compartilhar → Adicionar à Tela de Início. Depois abra pelo ícone e ative os lembretes.');
   if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) throw Error('Este navegador não oferece notificações push. Experimente um navegador atualizado.');
-  const publicKey=import.meta.env.VITE_VAPID_PUBLIC_KEY;
+  const publicKey=publicConfig.vapidPublicKey;
   if(!publicKey || publicKey.includes('SUA_CHAVE')) throw Error('As notificações ainda precisam ser configuradas pelo responsável pelo site.');
   const permission=await Notification.requestPermission();
   if(permission!=='granted') throw Error('Permita as notificações nas configurações do navegador para ativar os lembretes.');
@@ -28,8 +28,12 @@ export async function disablePush(user) {
   const registration=await navigator.serviceWorker.getRegistration();
   const subscription=await registration?.pushManager.getSubscription();
   if(!subscription) return;
-  if(user) await checked(db.from('push_subscriptions').delete().eq('user_id',user.id).eq('endpoint',subscription.endpoint));
-  await subscription.unsubscribe();
+  try {
+    if(user) await checked(db.from('push_subscriptions').delete().eq('user_id',user.id).eq('endpoint',subscription.endpoint));
+  } finally {
+    // Mesmo sem resposta do banco, revogar a inscrição local interrompe futuras entregas.
+    await subscription.unsubscribe();
+  }
 }
 export async function pushEnabled(user) {
   if(!user || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
@@ -40,6 +44,12 @@ export async function pushEnabled(user) {
   return rows.length>0;
 }
 export async function testPush() {
+  const {session}=await checked(db.auth.getSession());
+  if(!session)throw Error('Entre na sua conta para testar.');
   const registration=await navigator.serviceWorker.ready;
-  await registration.showNotification('Seu cantinho está pertinho 💜',{body:'Permissão e exibição funcionando neste aparelho. Os compromissos serão enviados pelo servidor.',icon:'/icon-192.png',tag:'rayza-test'});
+  const subscription=await registration.pushManager.getSubscription();
+  if(!subscription)throw Error('Ative as notificações neste aparelho antes de testar.');
+  const response=await fetch('/api/push-test',{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({endpoint:subscription.endpoint}),signal:AbortSignal.timeout(15000)});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'Não foi possível enviar o teste.');
 }

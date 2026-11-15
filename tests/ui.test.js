@@ -1,19 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {build} from 'vite';
-import {JSDOM} from 'jsdom';
-import {webcrypto} from 'node:crypto';
+import {backend,page} from './helpers/ui.js';
 
-const bundle=await build({logLevel:'silent',configFile:false,define:{'import.meta.env.VITE_SUPABASE_URL':'""','import.meta.env.VITE_SUPABASE_ANON_KEY':'""','import.meta.env.VITE_VAPID_PUBLIC_KEY':'""'},build:{write:false}});
-const script=bundle.output.find(file=>file.type==='chunk'&&file.isEntry).code;
-function makePage() {
-  const dom=new JSDOM('<div id="app"></div><div id="toast"></div><dialog id="editor"></dialog>',{url:'http://localhost/',runScripts:'outside-only',pretendToBeVisual:true});
-  const w=dom.window;
-  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
-  w.HTMLDialogElement.prototype.close=function(){this.open=false;};
-  w.crypto=webcrypto;
-  w.eval(script);
-  return dom;
+async function makePage() {
+ const b=backend();b.session={user:{id:'user-one',user_metadata:{name:'Rayza'}}};
+ b.tables.memories=[1,2,3].map((n)=>({id:'m'+n,user_id:'user-one',title:'Lembran?a '+n,caption:'Texto',photo_path:'user-one/'+n+'.jpg',taken_on:'2030-01-01',favorite:n!==2}));
+ return page(b);
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,10));
 function click(w,selector) {const target=w.document.querySelector(selector);assert.ok(target,`Missing ${selector}`);target.click();return tick();}
@@ -22,7 +14,7 @@ async function submit(w,values) {
   form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await tick();
 }
 test('appointments: create, edit, complete and delete; user HTML renders as text',async()=> {
-  const dom=makePage(),w=dom.window;
+  const dom=await makePage(),w=dom.window;
   try {
     await click(w,'[data-action="new-appointment"]');
     await submit(w,{title:'<img src=x onerror=alert(1)>',starts_at:'2030-05-10T12:00',location:'Meu lugar',notes:'Meu plano'});
@@ -38,7 +30,7 @@ test('appointments: create, edit, complete and delete; user HTML renders as text
   } finally {w.close();}
 });
 test('workouts: create multiple exercises, edit and log/unlog a session',async()=> {
-  const dom=makePage(),w=dom.window;
+  const dom=await makePage(),w=dom.window;
   try {
     await click(w,'[data-tab="treinos"]');await click(w,'[data-action="new-workout"]');
     await submit(w,{title:'Meu treino A',exercise_name:'Movimento A'});
@@ -53,7 +45,7 @@ test('workouts: create multiple exercises, edit and log/unlog a session',async()
   } finally {w.close();}
 });
 test('memories: filter favorites, open gallery and edit caption',async()=> {
-  const dom=makePage(),w=dom.window;
+  const dom=await makePage(),w=dom.window;
   try {
     await click(w,'[data-tab="lembrancas"]');assert.equal(w.document.querySelectorAll('.memory-card').length,3);
     await click(w,'[data-memory-filter="favoritas"]');assert.equal(w.document.querySelectorAll('.memory-card').length,2);
