@@ -1,10 +1,7 @@
-# Rayza 💜
+# yza 💜
 
 Um cantinho pessoal em roxo e lilás, feito com HTML, CSS e JavaScript. Login único, compromissos, galeria privada e treinos editáveis. Backend integrado à Vercel, sem banco externo para conectar.
 
-## Como usar
-
-Abra o site e entre com **rayza.huang** e a senha definida pelo responsável. Use o mesmo acesso no celular e no computador. O nome já vem preenchido; a senha é validada no servidor e não está no GitHub.
 
 - **Compromissos:** criar, editar, concluir e excluir; data, hora, local, notas e antecedência.
 - **Lembranças:** fotos privadas com data, legenda e favoritas. Imagens são reduzidas no aparelho antes do envio.
