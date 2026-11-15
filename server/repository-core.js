@@ -1,4 +1,4 @@
-export const emptyDatabase=()=>({version:1,appointments:[],memories:[],workouts:[],logs:[],subscriptions:[],deliveries:{},runtime:{}});
+export const emptyDatabase=()=>({version:1,appointments:[],memories:[],workouts:[],logs:[],finances:[],subscriptions:[],deliveries:{},runtime:{}});
 const conflict=error=>[409,412].includes(error.status)||/Precondition|AlreadyExists/.test(error.name||'')||/already exists|precondition/i.test(error.message||'');
 export function createRepository(adapter) {
   async function read(){return await adapter.read()||{data:emptyDatabase(),etag:null};}

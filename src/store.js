@@ -11,7 +11,7 @@ export async function initializeStore() {
   return publicConfig;
 }
 export async function checked(promise){const {data,error}=await promise;if(error)throw error;return data;}
-export async function loadData(){const data=await request('/api/data');data.workouts=data.workouts.map(sanitizeWorkout);return data;}
+export async function loadData(){const data=await request('/api/data');data.workouts=data.workouts.map(sanitizeWorkout);data.finances=data.finances||[];return data;}
 export async function saveRow(table,row,user,id){
   if(!user)throw Error('Entre na sua conta para salvar.');
   const result=await request('/api/data',{method:id?'PATCH':'POST',body:{table,id:id||row.id||crypto.randomUUID(),row}});lastSaveWarning=result.warning||null;return result.row;

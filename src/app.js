@@ -1,17 +1,17 @@
 import './style.css';
-import {escapeHTML as e,validateAppointment,validateWorkout,toLocalInput,formatDate,dateKey,dayNames,RequestGuard} from './domain.js';
+import {escapeHTML as e,validateAppointment,validateWorkout,validateFinance,toLocalInput,formatDate,dateKey,monthKey,formatBRL,dayNames,RequestGuard} from './domain.js';
 import {deleteMemorySafely} from './operations.js';
 import {db,configured,checked,loadData,saveRow,deleteRow,preparePhoto,uploadPhoto,initializeStore,publicConfig,removePhoto,request,lastSaveWarning} from './store.js';
 import {authView} from './auth-view.js';
 import {enablePush,disablePush,pushEnabled,testPush} from './push.js';
 
-const paths={calendar:'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',image:'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm-1 13 5-5 5 5 3-3 5 5M8 7h.01',dumbbell:'m6.5 6.5 11 11M4 9l5-5M2 7l5-5M15 20l5-5M17 22l5-5',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',plus:'M12 5v14M5 12h14',arrow:'M5 12h14m-5-5 5 5-5 5',chevron:'m9 5 7 7-7 7',clock:'M12 8v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',check:'m5 12 4 4L19 6',edit:'m16 3 5 5-12 12-6 1 1-6L16 3Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',close:'m6 6 12 12M6 18 18 6',logout:'M10 4H4v16h6m4-12 4 4-4 4M8 12h13',spark:'m12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6L12 2Z',upload:'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',user:'M20 21v-2a7 7 0 0 0-14 0v2M17 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',lock:'M5 10h14v11H5V10Zm3 0V6a4 4 0 0 1 8 0v4',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z'};
+const paths={calendar:'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',image:'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm-1 13 5-5 5 5 3-3 5 5M8 7h.01',dumbbell:'m6.5 6.5 11 11M4 9l5-5M2 7l5-5M15 20l5-5M17 22l5-5',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',plus:'M12 5v14M5 12h14',arrow:'M5 12h14m-5-5 5 5-5 5',chevron:'m9 5 7 7-7 7',clock:'M12 8v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',check:'m5 12 4 4L19 6',edit:'m16 3 5 5-12 12-6 1 1-6L16 3Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',close:'m6 6 12 12M6 18 18 6',logout:'M10 4H4v16h6m4-12 4 4-4 4M8 12h13',spark:'m12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6L12 2Z',upload:'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',user:'M20 21v-2a7 7 0 0 0-14 0v2M17 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',lock:'M5 10h14v11H5V10Zm3 0V6a4 4 0 0 1 8 0v4',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',wallet:'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2H2V6Zm0 4h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8Zm13 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z'};
 const icon=(name,cls='')=>`<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.spark}"/></svg>`;
 const flower=`<svg class="flower" viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor">${Array.from({length:8},(_,i)=>`<ellipse cx="50" cy="27" rx="11" ry="22" transform="rotate(${i*45} 50 50)"/>`).join('')}</g><circle cx="50" cy="50" r="10" fill="#e4c982"/></svg>`;
 const categories={pessoal:['Pessoal','heart'],saude:['Autocuidado','spark'],estudo:['Estudos','calendar'],encontro:['A dois','heart'],outro:['Outros','calendar']};
-const tabs={compromissos:['Compromissos','calendar','Seu tempo, com mais leveza.'],lembrancas:['Lembranças','image','Alguns momentos merecem ficar.'],treinos:['Treinos','dumbbell','Um carinho por você, a cada movimento.']};
-const emptyData=()=>({appointments:[],memories:[],workouts:[],logs:[]});
-let state={user:null,data:emptyData(),initializing:true,authMode:'login',authNotice:'',syncError:'',lastSynced:null,tab:location.hash.slice(1) in tabs?location.hash.slice(1):'compromissos',filter:'proximos',memoryFilter:'todas',workoutFilter:'todos',calendar:new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate:null,notify:false,loading:false,search:''};
+const tabs={compromissos:['Compromissos','calendar','Seu tempo, com mais leveza.'],lembrancas:['Lembranças','image','Alguns momentos merecem ficar.'],treinos:['Treinos','dumbbell','Um carinho por você, a cada movimento.'],financeiro:['Financeiro','wallet','Cuidando do que constrói seus sonhos.']};
+const emptyData=()=>({appointments:[],memories:[],workouts:[],logs:[],finances:[]});
+let state={user:null,data:emptyData(),initializing:true,authMode:'login',authNotice:'',syncError:'',lastSynced:null,tab:location.hash.slice(1) in tabs?location.hash.slice(1):'compromissos',filter:'proximos',memoryFilter:'todas',workoutFilter:'todos',financeFilter:'todos',financeMonth:monthKey(new Date()),calendar:new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate:null,notify:false,loading:false,search:''};
 let deferredInstall=null, photoPreview=null, editorDirty=false,saving=false,authSubscription=null,authBusy=false;
 const requests=new RequestGuard();
 const app=document.querySelector('#app'),dialog=document.querySelector('#editor');
@@ -36,7 +36,7 @@ function render() {
       <div class="sync-banner ${state.syncError?'sync-error':''}" role="status"><span>${icon(state.syncError?'bell':'check')}${state.syncError?e(state.syncError):state.lastSynced?'Dados salvos na sua conta · sincronizados entre seus aparelhos':'Carregando os dados da sua conta…'}</span><button data-action="refresh-data">Atualizar ${icon('arrow')}</button></div>
       <main id="main" tabindex="-1">
         <section class="welcome"><div><div class="eyebrow"><span></span> FEITO DE DIAS & PEQUENAS FELICIDADES</div><h1>Que bom ter você aqui, <em>Rayza.</em> <span class="tiny-star">✧</span></h1><p>Um lugar para seus planos, suas histórias e tudo que faz você florescer.</p></div><div class="welcome-art">${flower}<span>com amor, para você</span></div></section>
-        ${state.tab==='compromissos'?appointmentsView():state.tab==='lembrancas'?memoriesView():workoutsView()}
+        ${state.tab==='compromissos'?appointmentsView():state.tab==='lembrancas'?memoriesView():state.tab==='treinos'?workoutsView():financesView()}
         <footer class="page-footer"><span>Feito para guardar o que importa.</span><span>com amor ${icon('heart')} para Rayza</span></footer>
       </main>
       <nav class="mobile-nav" aria-label="Navegação no celular">${Object.entries(tabs).map(([key,[label,ico]])=>`<button data-tab="${key}" class="${state.tab===key?'active':''}" ${state.tab===key?'aria-current="page"':''}>${icon(ico)}<span>${label}</span></button>`).join('')}</nav>
@@ -82,6 +82,48 @@ function workoutCard(w) {
   return `<article class="workout-card ${done?'workout-done':''}"><div class="workout-card-top"><span class="stat-icon">${icon('dumbbell')}</span><span>${icon('clock')}${w.duration} min</span><div class="card-actions"><button class="icon-btn" data-action="edit-workout" data-id="${w.id}" aria-label="Editar ${e(w.title)}">${icon('edit')}</button><button class="icon-btn danger" data-action="delete-workout" data-id="${w.id}" aria-label="Excluir ${e(w.title)}">${icon('trash')}</button></div></div><span class="eyebrow">${e(w.focus||'MEU TEMPO DE CUIDADO')}</span><h3>${e(w.title)}</h3><div class="day-chips">${dayNames.map((name,i)=>`<span class="${w.days.includes(i)?'chosen':''}">${name}</span>`).join('')}</div><div class="exercise-summary"><span>${w.exercises.length} exercícios</span><span>Séries × rep.</span></div>${w.invalidExercises?`<p class="form-error">Alguns exerc?cios precisam ser revisados. Edite o treino para ajustar.</p>`:""}<ol class="exercise-list">${w.exercises.map((x,i)=>`<li><span class="exercise-index">${String(i+1).padStart(2,'0')}</span><div><strong>${e(x.name)}</strong><small>${e(x.weight||'Sem carga definida')} · ${e(x.rest)}s descanso</small></div><b>${x.sets} × ${e(x.reps)}</b></li>`).join('')}</ol>${w.notes?`<p class="workout-notes">${e(w.notes)}</p>`:''}<button class="btn ${done?'soft':'primary'} full" data-action="log-workout" data-id="${w.id}">${icon('check')}${done?'Feito hoje! Desfazer':'Marcar treino de hoje como feito'}</button></article>`;
 }
 
+function financesView() {
+  const currentMonth=state.financeMonth||monthKey(new Date());
+  const monthItems=(state.data.finances||[]).filter(f=>f.date&&f.date.startsWith(currentMonth));
+  const totalIncome=monthItems.filter(f=>f.type==='income').reduce((sum,f)=>sum+(Number(f.amount)||0),0);
+  const totalExpense=monthItems.filter(f=>f.type==='expense').reduce((sum,f)=>sum+(Number(f.amount)||0),0);
+  const paidExpense=monthItems.filter(f=>f.type==='expense'&&f.status==='pago').reduce((sum,f)=>sum+(Number(f.amount)||0),0);
+  const balance=totalIncome-totalExpense;
+  const pendingCount=monthItems.filter(f=>f.status==='pendente').length;
+
+  let items=[...monthItems];
+  if(state.financeFilter==='saidas') items=items.filter(f=>f.type==='expense');
+  else if(state.financeFilter==='entradas') items=items.filter(f=>f.type==='income');
+  else if(state.financeFilter==='pendentes') items=items.filter(f=>f.status==='pendente');
+  else if(state.financeFilter==='pagos') items=items.filter(f=>f.status==='pago');
+  else if(state.financeFilter==='pix') items=items.filter(f=>f.payment_method==='pix');
+  items.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const categoryMap=new Map();
+  monthItems.filter(f=>f.type==='expense').forEach(f=>{
+    const cat=f.category||'Outros';
+    categoryMap.set(cat,(categoryMap.get(cat)||0)+(Number(f.amount)||0));
+  });
+  const topCategories=[...categoryMap.entries()].sort((a,b)=>b[1]-a[1]);
+
+  return `<section class="workout-hero finance-hero"><div><div class="eyebrow">CLAREZA &amp; PROSPERIDADE</div><h2>Finanças &amp;<br><em>pequenas conquistas.</em></h2><p>Acompanhe suas entradas, gerencie seus gastos e cuide do que é seu com carinho e tranquilidade.</p><span class="workout-badge">${icon('heart')} Cuidar do seu dinheiro também é um gesto de amor-próprio.</span></div><div class="workout-art finance-art">${icon('wallet')}<span>cada conquista<br><em>no seu tempo</em></span><i>✧</i></div></section>
+    <div class="finance-period-bar"><div class="finance-period-title"><button class="icon-btn rotate" data-action="prev-finance-month" aria-label="Mês anterior">${icon('chevron')}</button><h3>${formatDate(`${currentMonth}-01T12:00:00`,{month:'long',year:'numeric'}).toUpperCase()}</h3><button class="icon-btn" data-action="next-finance-month" aria-label="Próximo mês">${icon('chevron')}</button></div><div class="finance-period-actions">${currentMonth!==monthKey(new Date())?`<button class="btn soft" data-action="current-finance-month">${icon('clock')} Mês atual</button>`:''}</div></div>
+    <div class="stats-grid">${statsCard('arrow',formatBRL(totalIncome),'entradas no mês','sage')}${statsCard('wallet',formatBRL(totalExpense),`gastos (${formatBRL(paidExpense)} pagos)`,'peach')}${statsCard('spark',formatBRL(balance),balance>=0?'saldo previsto':'saldo negativo',balance>=0?'':'peach')}</div>
+    ${topCategories.length?`<div class="category-summary-box"><div class="category-summary-header"><span>${icon('spark')} <strong>Gastos por categoria neste mês</strong> (ex.: ração do Bryan, mercado, etc.):</span></div><div class="category-chips-list">${topCategories.map(([cat,total])=>`<div class="category-summary-chip"><span class="chip-name">${e(cat)}</span><strong>${formatBRL(total)}</strong></div>`).join('')}</div></div>`:''}
+    <div class="section-heading"><div><div class="eyebrow">FLUXO &amp; GERENCIADOR</div><h2>Extrato e pagamentos<span>.</span></h2><p>Controle gastos pagos ou pendentes, cartões utilizados e transferências via Pix.</p></div><div class="heading-actions">${headerButton('new-income','Nova entrada','plus','soft')}${headerButton('new-expense','Novo gasto','plus','primary')}</div></div>
+    <div class="routine-toolbar"><div class="filters" role="group" aria-label="Filtrar lançamentos financeiros">${[['todos','Todos',monthItems.length],['saidas','Saídas (Gastos)',monthItems.filter(f=>f.type==='expense').length],['entradas','Entradas',monthItems.filter(f=>f.type==='income').length],['pendentes','Pendentes',pendingCount],['pagos','Pagos / Recebidos',monthItems.filter(f=>f.status==='pago').length],['pix','Área Pix',monthItems.filter(f=>f.payment_method==='pix').length]].map(([key,label,count])=>`<button class="filter ${state.financeFilter===key?'active':''}" data-finance-filter="${key}">${label} ${count!==undefined?`<span>${count}</span>`:''}</button>`).join('')}</div><span>${items.length} registro${items.length===1?'':'s'}</span></div>
+    <section class="finance-list" aria-label="Lançamentos financeiros">${items.length?items.map(financeCard).join(''):empty('wallet','Nenhum lançamento encontrado',state.financeFilter!=='todos'?'Nenhum registro encontrado para este filtro.':'Anote seus gastos mensais ou registre entradas como seu salário ou VR.','new-expense','Adicionar primeiro gasto')}</section>
+    <div class="gentle-note">${icon('spark')} Dica: toque no botão de status (Pago / Pendente) para alternar rapidamente com 1 clique.</div>`;
+}
+
+function financeCard(f) {
+  const isExpense=f.type==='expense',isPaid=f.status==='pago';
+  const statusLabel=isExpense?(isPaid?'Pago':'Pendente'):(isPaid?'Recebido':'Previsto');
+  const methodLabels={credito:'Cartão de Crédito',debito:'Cartão de Débito',pix:'Pix',dinheiro:'Dinheiro',outro:'Outro'};
+  const methodLabel=methodLabels[f.payment_method]||'Outro';
+  return `<article class="finance-card ${isExpense?'expense':'income'} ${isPaid?'is-paid':'is-pending'}"><button class="finance-status-btn ${isPaid?(isExpense?'paid':'received'):'pending'}" data-action="toggle-finance-status" data-id="${f.id}" aria-label="Alternar status de ${e(f.title)}">${isPaid?icon('check'):icon('clock')}<span>${statusLabel}</span></button><div class="finance-content"><div class="finance-top"><div class="finance-title-group"><h3>${e(f.title)}</h3><span class="finance-category ${isExpense?'':'income-tag'}">${e(f.category||(isExpense?'Geral':'Renda'))}</span></div><strong class="finance-amount ${isExpense?'expense':'income'}">${isExpense?'-':'+'} ${formatBRL(f.amount)}</strong></div><div class="finance-meta"><span>${icon('calendar')} ${formatDate(`${f.date}T12:00:00`,{day:'numeric',month:'short'})}</span>${isExpense?(f.payment_method==='pix'?`<span class="payment-tag pix" title="Identificação do Pix">${icon('arrow')} Pix · Destinatário: <strong>${e(f.pix_recipient||'Não identificado')}</strong></span>`:(f.payment_method==='credito'||f.payment_method==='debito')?`<span class="payment-tag card">${icon('wallet')} ${f.card_name?`<strong>${e(f.card_name)}</strong> · `:''}${f.payment_method==='credito'?'Crédito':'Débito'}</span>`:`<span class="payment-tag">${methodLabel}</span>`):`<span class="payment-tag income-method">${icon('arrow')} ${methodLabel}${f.pix_recipient?` · <strong>${e(f.pix_recipient)}</strong>`:''}</span>`}</div>${f.notes?`<p class="finance-notes">${e(f.notes)}</p>`:''}</div><div class="card-actions"><button class="icon-btn" data-action="edit-finance" data-id="${f.id}" aria-label="Editar ${e(f.title)}">${icon('edit')}</button><button class="icon-btn danger" data-action="delete-finance" data-id="${f.id}" aria-label="Excluir ${e(f.title)}">${icon('trash')}</button></div></article>`;
+}
+
 function closeDialog(force=false) {
   if(saving)return false;
   if(editorDirty&&!force) {
@@ -111,6 +153,17 @@ function workoutForm(id) {
   const w=state.data.workouts.find(w=>w.id===id)||{days:[],duration:45,exercises:[{name:'',sets:3,reps:'12',weight:'',rest:60}]};
   openDialog(`${dialogHead('UM TEMPO PARA VOCÊ',id?'Ajustar meu treino':'Monte sua rotina.')}<form data-form="workout" data-id="${id||''}">${field('Nome do treino','title',w.title,'text','required maxlength="100" placeholder="Ex.: Treino A — inferiores"')}<div class="form-grid">${field('Foco (opcional)','focus',w.focus,'text','maxlength="100" placeholder="Ex.: Mobilidade"')}${field('Duração estimada (min)','duration',w.duration,'number','required min="1" max="360"')}</div><fieldset class="day-picker"><legend>Em quais dias?</legend>${dayNames.map((name,i)=>`<label><input type="checkbox" name="days" value="${i}" ${w.days.includes(i)?'checked':''}/><span>${name}</span></label>`).join('')}</fieldset><div id="exercise-editors">${w.exercises.map(exerciseRow).join('')}</div><button type="button" class="btn soft full" data-action="add-exercise">${icon('plus')}Adicionar exercício</button>${textarea('Observações (opcional)','notes',w.notes)}${formFoot('Salvar meu treino')}</form>`,true);
 }
+function financeForm(id,defaultType='expense') {
+  const f=state.data.finances.find(f=>f.id===id)||{type:defaultType,title:'',amount:'',date:dateKey(),category:'',payment_method:defaultType==='income'?'pix':'credito',card_name:'',pix_recipient:'',status:defaultType==='income'?'pago':'pendente',notes:''};
+  const isIncome=f.type==='income';
+  const userCategories=[...new Set((state.data.finances||[]).filter(x=>x.type===f.type&&x.category).map(x=>x.category.trim()))];
+  const defaultExpenseCategories=['Ração do Bryan','Pet & Bryan','Mercado & Feira','Alimentação & Delivery','Saúde & Farmácia','Casa & Contas','Transporte & Uber','Combustível','Lazer & Restaurantes','Assinaturas & Streaming','Cuidados Pessoais','Vestuário','Outros'];
+  const defaultIncomeCategories=['Salário','Pagamento da Maria','VR (Vale Refeição)','VA (Vale Alimentação)','Freelance / Serviços','Rendimentos','Reembolso','Presente','Outros'];
+  const categorySuggestions=[...new Set([...(isIncome?defaultIncomeCategories:defaultExpenseCategories),...userCategories])];
+  const defaultCards=['Nubank','Itaú','Inter','C6 Bank','XP','Bradesco','Santander','Outro cartão'];
+
+  openDialog(`${dialogHead(isIncome?'ENTRADA DE RENDA':'SAÍDA / GASTO',id?(isIncome?'Editar entrada':'Editar gasto'):(isIncome?'Nova entrada de renda':'Novo gasto'))}<form data-form="finance" data-id="${id||''}"><input type="hidden" name="type" value="${f.type}" />${field(isIncome?'Origem da renda / Título':'O que foi esse gasto?','title',f.title,'text',`required maxlength="120" placeholder="${isIncome?'Ex.: Salário, Pagamento da Maria, VR...':'Ex.: Ração do Bryan, Mercado, Farmácia...'}"`)}<div class="form-grid">${field('Valor (R$)','amount',f.amount!==''?f.amount:'','number','required min="0.01" max="10000000" step="0.01" placeholder="0,00"')}${field('Data','date',f.date||dateKey(),'date','required')}</div><div class="form-grid"><label class="field"><span>Categoria (você pode alterar ou digitar uma nova)</span><input type="text" name="category" list="finance-cat-list" value="${e(f.category||(isIncome?'Salário':'Ração do Bryan'))}" required maxlength="100" placeholder="Ex.: Ração do Bryan" /><datalist id="finance-cat-list">${categorySuggestions.map(c=>`<option value="${e(c)}">`).join('')}</datalist></label><label class="field"><span>Forma de ${isIncome?'recebimento':'pagamento'}</span><select name="payment_method" id="finance-payment-method">${isIncome?`<option value="pix" ${f.payment_method==='pix'?'selected':''}>Pix / Transferência</option><option value="debito" ${f.payment_method==='debito'?'selected':''}>Depósito em Conta</option><option value="outro" ${f.payment_method==='outro'?'selected':''}>VR / Benefício</option><option value="dinheiro" ${f.payment_method==='dinheiro'?'selected':''}>Dinheiro</option>`:`<option value="credito" ${f.payment_method==='credito'?'selected':''}>Cartão de Crédito</option><option value="debito" ${f.payment_method==='debito'?'selected':''}>Cartão de Débito</option><option value="pix" ${f.payment_method==='pix'?'selected':''}>Pix</option><option value="dinheiro" ${f.payment_method==='dinheiro'?'selected':''}>Dinheiro</option><option value="outro" ${f.payment_method==='outro'?'selected':''}>Outro</option>`}</select></label></div>${!isIncome?`<div class="form-grid"><label class="field"><span>Qual cartão foi usado? (se for cartão)</span><input type="text" name="card_name" list="cards-list" value="${e(f.card_name)}" maxlength="100" placeholder="Ex.: Nubank, Itaú, Inter..." /><datalist id="cards-list">${defaultCards.map(c=>`<option value="${e(c)}">`).join('')}</datalist></label><label class="field"><span>Área Pix — Para quem vai esse Pix?</span><input type="text" name="pix_recipient" value="${e(f.pix_recipient)}" maxlength="120" placeholder="Ex.: Veterinário do Bryan, Chave Pix, etc." /></label></div>`:`<div class="form-grid"><label class="field"><span>Identificação / conta / destino (opcional)</span><input type="text" name="pix_recipient" value="${e(f.pix_recipient)}" maxlength="120" placeholder="Ex.: Conta Nubank, Cartão VR, Pix..." /></label></div>`}<label class="field"><span>Status (${isIncome?'recebido ou previsto':'pago ou pendente'})</span><select name="status">${isIncome?`<option value="pago" ${f.status==='pago'?'selected':''}>Recebido (já entrou)</option><option value="pendente" ${f.status==='pendente'?'selected':''}>Previsto / Pendente</option>`:`<option value="pendente" ${f.status==='pendente'?'selected':''}>Pendente (a pagar)</option><option value="pago" ${f.status==='pago'?'selected':''}>Pago</option>`}</select></label>${textarea('Observações (opcional)','notes',f.notes)}${formFoot(isIncome?'Salvar entrada com carinho':'Salvar gasto com carinho')}</form>`);
+}
 function authForm(mode='login',notice='') {state.authMode='login';state.authNotice=notice;render();}
 
 function settings() {
@@ -123,14 +176,14 @@ function settings() {
 async function checkNotificationHealth() {state.notificationHealth=await request('/api/notification-status');if(dialog.open&&dialog.dataset.screen==='settings')settings();}
 
 function confirmDelete(type,id) {
-  const names={appointment:'este compromisso',memory:'esta lembrança e sua foto',workout:'este treino e seu histórico'};
-  openDialog(`${dialogHead('ABRIR ESPAÇO','Quer mesmo excluir?')}<p class="confirm-copy">Você vai excluir ${names[type]}. Essa ação não pode ser desfeita.</p><form data-form="delete" data-type="${type}" data-id="${id}"><p class="form-error" role="alert"></p><div class="form-foot"><button type="button" class="btn ghost" data-action="close">Quero manter</button><button type="submit" class="btn destructive">${icon('trash')}Sim, excluir</button></div></form>`);
+  const names={appointment:'este compromisso',memory:'esta lembrança e sua foto',workout:'este treino e seu histórico',finance:'este lançamento financeiro'};
+  openDialog(`${dialogHead('ABRIR ESPAÇO','Quer mesmo excluir?')}<p class="confirm-copy">Você vai excluir ${names[type]||'este item'}. Essa ação não pode ser desfeita.</p><form data-form="delete" data-type="${type}" data-id="${id}"><p class="form-error" role="alert"></p><div class="form-foot"><button type="button" class="btn ghost" data-action="close">Quero manter</button><button type="submit" class="btn destructive">${icon('trash')}Sim, excluir</button></div></form>`);
 }
 async function persist(table,row,id) {
   if(!state.user)throw Error('Entre na sua conta antes de salvar.');
   requests.invalidate();state.loading=false;
   const user=state.user;
-  const names={appointments:'appointments',memories:'memories',workouts:'workouts',workout_logs:'logs'};
+  const names={appointments:'appointments',memories:'memories',workouts:'workouts',workout_logs:'logs',finances:'finances'};
   const saved=await saveRow(table,row,user,id);
   if(state.user?.id!==user.id) throw Error('A sessão mudou. Entre novamente.');
   requests.invalidate();
@@ -178,6 +231,13 @@ async function action(name,id,button) {
   if(name==='new-appointment'||name==='edit-appointment') return appointmentForm(id);
   if(name==='new-memory'||name==='edit-memory') return memoryForm(id);
   if(name==='new-workout'||name==='edit-workout') return workoutForm(id);
+  if(name==='new-expense') return financeForm(null,'expense');
+  if(name==='new-income') return financeForm(null,'income');
+  if(name==='edit-finance'){const f=state.data.finances.find(f=>f.id===id);return financeForm(id,f?.type||'expense');}
+  if(name==='toggle-finance-status'){const f=state.data.finances.find(f=>f.id===id);if(!f)return;const nextStatus=f.status==='pago'?'pendente':'pago';await persist('finances',{status:nextStatus},id);render();const isExp=f.type==='expense';return toast(nextStatus==='pago'?(isExp?'Gasto marcado como pago! 💜':'Entrada marcada como recebida! 💜'):'Marcado como pendente.');}
+  if(name==='prev-finance-month'){const [y,m]=state.financeMonth.split('-').map(Number);state.financeMonth=monthKey(new Date(y,m-2,1));return render();}
+  if(name==='next-finance-month'){const [y,m]=state.financeMonth.split('-').map(Number);state.financeMonth=monthKey(new Date(y,m,1));return render();}
+  if(name==='current-finance-month'){state.financeMonth=monthKey(new Date());return render();}
   if(name.startsWith('delete-')) return confirmDelete(name.slice(7),id);
   if(name==='auth') return authForm();
   if(name==='settings'){settings();checkNotificationHealth().catch(()=>{});return;}
@@ -216,6 +276,7 @@ document.addEventListener('click',async event=> {
   const filter=event.target.closest('[data-filter]');if(filter){state.filter=filter.dataset.filter;render();return;}
   const memoryFilter=event.target.closest('[data-memory-filter]');if(memoryFilter){state.memoryFilter=memoryFilter.dataset.memoryFilter;render();return;}
   const workoutFilter=event.target.closest('[data-workout-filter]');if(workoutFilter){state.workoutFilter=workoutFilter.dataset.workoutFilter;render();return;}
+  const financeFilter=event.target.closest('[data-finance-filter]');if(financeFilter){state.financeFilter=financeFilter.dataset.financeFilter;render();return;}
   const day=event.target.closest('[data-date]');if(day){state.selectedDate=day.dataset.date;state.filter='todos';render();return;}
   const auth=event.target.closest('[data-auth-mode]');if(auth){authForm(auth.dataset.authMode);return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
@@ -271,15 +332,20 @@ document.addEventListener('submit',async event=> {
       const row={title:fd.get('title').trim(),focus:fd.get('focus').trim(),duration:Number(fd.get('duration')),days:fd.getAll('days').map(Number),notes:fd.get('notes').trim(),exercises:[...form.querySelectorAll('.exercise-editor')].map(node=>({name:node.querySelector('[name="exercise_name"]').value.trim(),sets:Number(node.querySelector('[name="sets"]').value),reps:node.querySelector('[name="reps"]').value.trim(),weight:node.querySelector('[name="weight"]').value.trim(),rest:Number(node.querySelector('[name="rest"]').value)}))};
       if(!id)row.id=form.dataset.createId;
       validateWorkout(row);await persist('workouts',row,id);state.workoutFilter='todos';toast('Treino salvo na sua conta. 💜');
+    } else if(kind==='finance') {
+      const type=fd.get('type')||'expense';
+      const row={title:fd.get('title').trim(),amount:Number(fd.get('amount')),type,date:fd.get('date'),category:fd.get('category').trim()||(type==='income'?'Salário':'Outros'),payment_method:fd.get('payment_method')||'pix',card_name:(fd.get('card_name')||'').trim(),pix_recipient:(fd.get('pix_recipient')||'').trim(),status:fd.get('status')||'pendente',notes:(fd.get('notes')||'').trim()};
+      if(!id)row.id=form.dataset.createId;
+      validateFinance(row);await persist('finances',row,id);state.financeMonth=row.date.slice(0,7);toast(type==='income'?'Entrada salva na sua conta. 💜':'Gasto salvo na sua conta. 💜');
     } else if(kind==='delete') {
-      const type=form.dataset.type,table={appointment:'appointments',memory:'memories',workout:'workouts'}[type];
+      const type=form.dataset.type,table={appointment:'appointments',memory:'memories',workout:'workouts',finance:'finances'}[type];
       const row=state.data[table].find(x=>x.id===id);
       let cleanupFailed=false;
       if(type==='memory'&&row.photo_path) {
         ({cleanupFailed}=await deleteMemorySafely(()=>remove(table,id),()=>removePhoto(row.photo_path)));
       } else await remove(table,id);
       if(type==='workout')state.data.logs=state.data.logs.filter(l=>l.workout_id!==id);
-      toast(cleanupFailed?'Lembrança removida. Um arquivo privado ficou pendente de limpeza no armazenamento.':'Excluído. Espaço para novas histórias.');
+      toast(cleanupFailed?'Lembrança removida. Um arquivo privado ficou pendente de limpeza no armazenamento.':type==='finance'?'Lançamento financeiro excluído.':'Excluído. Espaço para novas histórias.');
     } else if(kind==='auth') {await submitAuth(form,fd);return;}
     saving=false;closeDialog(true);render();
   } catch(error) {errorBox.textContent=translateError(error.message);}

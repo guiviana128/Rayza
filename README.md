@@ -9,6 +9,7 @@ Abra o site e entre com **rayza.huang** e a senha definida pelo responsável. Us
 - **Compromissos:** criar, editar, concluir e excluir; data, hora, local, notas e antecedência.
 - **Lembranças:** fotos privadas com data, legenda e favoritas. Imagens são reduzidas no aparelho antes do envio.
 - **Treinos:** exercícios, dias da semana, séries, repetições, carga, descanso e registro de conclusão diária.
+- **Financeiro:** controle de gastos e entradas mensais (salário, pagamento da Maria, VR, etc.), categorias alteráveis (ex.: "ração do Bryan"), cartões de crédito/débito, área Pix com identificação do destinatário, alternância de status pago/pendente com 1 clique e cálculo de saldo previsto.
 - **Sincronização:** ao abrir/voltar à página, atualizar manualmente e a cada 15 segundos com a tela visível. Uma edição aberta é preservada.
 - **Salvamento:** só confirma sucesso após gravação no servidor. Erros mantêm os campos para tentar novamente. Exclusões persistem após atualizar.
 

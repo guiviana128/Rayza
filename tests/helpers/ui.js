@@ -2,7 +2,7 @@ import {build} from 'vite';import {JSDOM} from 'jsdom';import {webcrypto} from '
 const bundle=await build({logLevel:'silent',configFile:false,build:{write:false}});
 const script=bundle.output.find(f=>f.type==='chunk'&&f.isEntry).code;
 export const tick=()=>new Promise(r=>setTimeout(r,30));
-export const backend=()=>({session:null,tables:{appointments:[],memories:[],workouts:[],workout_logs:[],push_subscriptions:[]},failWrites:false,failPushRead:false,delayWrite:null});
+export const backend=()=>({session:null,tables:{appointments:[],memories:[],workouts:[],workout_logs:[],finances:[],push_subscriptions:[]},failWrites:false,failPushRead:false,delayWrite:null});
 export async function page(b,{configured=true}={}) {
   const dom=new JSDOM('<div id="app"></div><div id="toast"></div><dialog id="editor"></dialog>',{url:'https://rayza.test/',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window;
   if(b.session)b.session.user.username='rayza.huang';w.crypto=webcrypto;w.AbortSignal=globalThis.AbortSignal;
@@ -24,13 +24,13 @@ export async function page(b,{configured=true}={}) {
     if(url==='/api/data'){
       if(method==='GET'){
         if(b.failRefreshAfterPhoto&&b.tables.memories.length)return reply({error:'Network unavailable during refresh'},503);
-        return reply({appointments:b.tables.appointments,memories:b.tables.memories.map(m=>({...m,url:'/demo-flowers.svg'})),workouts:b.tables.workouts,logs:b.tables.workout_logs});
+        return reply({appointments:b.tables.appointments,memories:b.tables.memories.map(m=>({...m,url:'/demo-flowers.svg'})),workouts:b.tables.workouts,logs:b.tables.workout_logs,finances:b.tables.finances||[]});
       }
       if(b.delayWrite)await b.delayWrite;if(b.failWrites)return reply({error:'Network unavailable'},503);
-      let row;const rows=b.tables[body.table];const old=rows.find(r=>r.id===body.id);
+      let row;if(!b.tables[body.table])b.tables[body.table]=[];const rows=b.tables[body.table];const old=rows.find(r=>r.id===body.id);
       if(method==='DELETE'){b.tables[body.table]=rows.filter(r=>r.id!==body.id);row={id:body.id};}
       else if(old){Object.assign(old,body.row);row=old;}
-      else{row={id:body.id,user_id:'rayza',completed:false,favorite:false,...body.row};rows.push(row);}
+      else{row={id:body.id,user_id:'rayza',completed:false,favorite:false,status:'pendente',...body.row};rows.push(row);}
       if(b.failAfterWrite)return reply({error:'Network response lost after commit'},503);
       return reply({row});
     }
