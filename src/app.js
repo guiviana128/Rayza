@@ -1,7 +1,7 @@
 import './style.css';
 import {escapeHTML as e,validateAppointment,validateWorkout,toLocalInput,formatDate,dateKey,dayNames,RequestGuard} from './domain.js';
 import {deleteMemorySafely} from './operations.js';
-import {db,configured,checked,loadData,saveRow,deleteRow,preparePhoto,uploadPhoto,initializeStore,publicConfig} from './store.js';
+import {db,configured,checked,loadData,saveRow,deleteRow,preparePhoto,uploadPhoto,initializeStore,publicConfig,removePhoto,request,lastSaveWarning} from './store.js';
 import {authView} from './auth-view.js';
 import {enablePush,disablePush,pushEnabled,testPush} from './push.js';
 
@@ -116,17 +116,11 @@ function authForm(mode='login',notice='') {state.authMode='login';state.authNoti
 function settings() {
   const health=state.notificationHealth;
   const serverText=!health?'Ainda n?o verificado':health.serverConfigured?'Servidor de notifica??es configurado':'Falta concluir a configura??o do servidor';
-  const schedulerText=health?.schedulerActive?'Agendador ativo nos ?ltimos 3 minutos':'O agendador ainda n?o foi confirmado';
+  const schedulerText=health?.schedulerActive?'Recebimento da fila confirmado':'O agendador ainda n?o foi confirmado';
   openDialog(`${dialogHead('SEMPRE POR PERTO','Lembretes no seu celular.')}<div class="settings-intro">${icon('bell')}<p>Ative no celular em que deseja receber os avisos. Usar a mesma conta no computador n?o ativa automaticamente o celular.</p></div><div class="settings-status"><i class="${state.notify?'on':''}"></i><div><strong>${state.notify?'Este aparelho est? inscrito':'Este aparelho ainda n?o est? inscrito'}</strong><small>Permiss?o de notifica??es individual para cada aparelho.</small></div></div><div class="push-health"><div>${icon('lock')}<span>${serverText}</span></div><div>${icon('clock')}<span>${schedulerText}</span></div><button class="text-button" data-action="check-notifications">Verificar configura??o</button></div><p class="form-error" role="alert"></p><div class="settings-buttons">${state.notify?headerButton('test-push','Enviar teste pelo servidor','bell')+headerButton('disable-push','Desativar neste aparelho','close','ghost'):headerButton('enable-push','Ativar neste aparelho','bell')}</div><div class="install-card"><h3>${icon('download')} Instalar no celular</h3><p><strong>iPhone:</strong> abra no Safari ? Compartilhar ? Adicionar ? Tela de In?cio. Abra pelo ?cone e permita as notifica??es (iOS 16.4 ou superior).</p><p><strong>Android:</strong> permita notifica??es no Chrome/Edge e use a op??o ?Instalar aplicativo?.</p>${deferredInstall?headerButton('install','Instalar Rayza','download','soft'):''}</div><p class="form-hint">Os avisos chegam ?s notifica??es do aparelho com a p?gina fechada quando permiss?o, servidor e agendador est?o ativos. Conex?o, modo foco e economia de bateria podem atrasar a entrega.</p><div class="settings-account"><p>Use esta mesma conta em todos os aparelhos:<strong>${e(state.user?.email||'')}</strong></p><button class="text-button" data-action="logout">${icon('logout')} Sair desta conta</button></div>`);
   dialog.dataset.screen='settings';
 }
-async function checkNotificationHealth() {
-  const {session}=await checked(db.auth.getSession());
-  const response=await fetch('/api/notification-status',{headers:{Authorization:`Bearer ${session?.access_token||''}`},cache:'no-store',signal:AbortSignal.timeout(12000)});
-  const result=await response.json();if(!response.ok)throw Error(result.error||'N?o foi poss?vel verificar os lembretes.');
-  state.notificationHealth=result;
-  if(dialog.open&&dialog.dataset.screen==='settings')settings();
-}
+async function checkNotificationHealth() {state.notificationHealth=await request('/api/notification-status');if(dialog.open&&dialog.dataset.screen==='settings')settings();}
 
 function confirmDelete(type,id) {
   const names={appointment:'este compromisso',memory:'esta lembrança e sua foto',workout:'este treino e seu histórico'};
@@ -257,7 +251,7 @@ document.addEventListener('submit',async event=> {
       if(!id)row.id=form.dataset.createId;
       validateAppointment(row);const saved=await persist('appointments',row,id);
       state.selectedDate=null;state.filter=saved.completed?'todos':'proximos';state.calendar=new Date(new Date(saved.starts_at).getFullYear(),new Date(saved.starts_at).getMonth(),1);
-      toast('Compromisso salvo na sua conta. 💜');
+      toast(lastSaveWarning||'Compromisso salvo na sua conta. 💜');
     } else if(kind==='memory') {
       const file=fd.get('photo'),old=state.data.memories.find(m=>m.id===id);
       const row={title:fd.get('title').trim(),taken_on:fd.get('taken_on'),caption:fd.get('caption').trim()};
@@ -268,7 +262,7 @@ document.addEventListener('submit',async event=> {
           const uploaded=form.dataset.uploadedPath||await uploadPhoto(blob,state.user);form.dataset.uploadedPath=uploaded;row.photo_path=uploaded;
           // Um timeout pode acontecer depois do commit. Preservar o arquivo para tentar de novo com o mesmo id.
           await persist('memories',row,id);
-          if(old?.photo_path && old.photo_path!==uploaded) {const cleanup=await db.storage.from('memories').remove([old.photo_path]);if(cleanup.error)toast('Nova foto salva. A anterior não pôde ser removida do armazenamento.');}
+          if(old?.photo_path && old.photo_path!==uploaded) {const cleanup=await removePhoto(old.photo_path).catch(()=>({error:true}));if(cleanup.error)toast('Nova foto salva. A anterior não pôde ser removida do armazenamento.');}
           await refresh();saving=false;closeDialog(true);return toast('Um instante bonito, guardado na sua conta. 💜');
         }
       } else if(!id) throw Error('Escolha uma foto para sua lembrança.');
@@ -282,7 +276,7 @@ document.addEventListener('submit',async event=> {
       const row=state.data[table].find(x=>x.id===id);
       let cleanupFailed=false;
       if(type==='memory'&&row.photo_path) {
-        ({cleanupFailed}=await deleteMemorySafely(()=>remove(table,id),()=>checked(db.storage.from('memories').remove([row.photo_path]))));
+        ({cleanupFailed}=await deleteMemorySafely(()=>remove(table,id),()=>removePhoto(row.photo_path)));
       } else await remove(table,id);
       if(type==='workout')state.data.logs=state.data.logs.filter(l=>l.workout_id!==id);
       toast(cleanupFailed?'Lembrança removida. Um arquivo privado ficou pendente de limpeza no armazenamento.':'Excluído. Espaço para novas histórias.');
@@ -306,15 +300,14 @@ async function submitAuth(form,fd) {
   const result=await response.json();
   if(!response.ok)throw Error(result.error||'Falha ao entrar. Tente novamente.');
   if(!db)await initializeStore();
-  if(!db)throw Error('A conexao com o Supabase ainda nao foi concluida.');
-  const data=await checked(db.auth.setSession({access_token:result.session.access_token,refresh_token:result.session.refresh_token}));
-  await startSession(data.session);
+  if(!db)throw Error('A conexao com o servidor ainda nao foi concluida.');
+  await startSession(result.session);
   toast('Bem-vinda ao seu cantinho.');
 }
 
 async function startSession(session) {
   requests.invalidate();
-  if(session?.user?.email!==publicConfig.accountEmail){await checked(db.auth.signOut({scope:'local'}));resetSession();throw Error('Este acesso pertence somente a Rayza.');}
+  if(session?.user?.username!==publicConfig.accountUsername){await checked(db.auth.signOut({scope:'local'}));resetSession();throw Error('Este acesso pertence somente a Rayza.');}
   if(!session?.user)throw Error('Não foi possível abrir a sessão. Entre novamente.');
   if(state.user?.id!==session.user.id){state.data=emptyData();state.lastSynced=null;state.selectedDate=null;}
   state.user=session.user;state.authNotice='';state.authMode='login';

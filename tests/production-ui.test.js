@@ -5,7 +5,7 @@ async function click(w,selector){const target=w.document.querySelector(selector)
 async function submit(w,values={}){const form=w.document.querySelector('dialog[open] form')||w.document.querySelector('form[data-form="auth"]');assert.ok(form);for(const [key,value]of Object.entries(values))form.querySelector(`[name="${key}"]`).value=value;form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await tick();}
 async function login(w){await submit(w,{username:'rayza.huang',password:'test-password'});assert.equal(w.document.querySelector('.form-error')?.textContent||'', '', 'Login error');}
 
-test('production requires login; missing Supabase never presents fake saved activities',async()=> {
+test('production requires login; missing storage never presents fake saved activities',async()=> {
   const dom=await page(backend(),{configured:false});try{assert.ok(dom.window.document.querySelector('.auth-page'));assert.equal(dom.window.document.querySelector('.appointment'),null);assert.equal(dom.window.document.querySelector('[data-action="new-appointment"]'),null);assert.match(dom.window.document.body.textContent,/conexão|conectar|configurad/i);}finally{dom.window.close();}
 });
 test('login is a single fixed username without public signup or email field',async()=> {

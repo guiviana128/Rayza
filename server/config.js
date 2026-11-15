@@ -1,14 +1,3 @@
-const first=(env,names)=>names.map(name=>env[name]?.trim()).find(Boolean)||'';
-export const getSupabaseServerKey=(env=process.env)=>first(env,['SUPABASE_SECRET_KEY','SUPABASE_SERVICE_ROLE_KEY']);
-function safePublicKey(key) {
-  if(key.startsWith('sb_publishable_'))return true;
-  try {return JSON.parse(Buffer.from(key.split('.')[1],'base64url').toString()).role==='anon';}catch{return false;}
-}
 export function resolveConfig(env=process.env) {
-  const supabaseUrl=first(env,['SUPABASE_URL','NEXT_PUBLIC_SUPABASE_URL','VITE_SUPABASE_URL']);
-  const key=first(env,['SUPABASE_PUBLISHABLE_KEY','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','VITE_SUPABASE_PUBLISHABLE_KEY','SUPABASE_ANON_KEY','NEXT_PUBLIC_SUPABASE_ANON_KEY','VITE_SUPABASE_ANON_KEY']);
-  let validUrl=false;try{const u=new URL(supabaseUrl);validUrl=u.protocol==='https:'&&!u.username&&!u.password&&u.pathname==='/';}catch{}
-  const configured=validUrl&&safePublicKey(key);
-  const vapidPublicKey=first(env,['VAPID_PUBLIC_KEY','VITE_VAPID_PUBLIC_KEY']);
-  return {configured,singleAccount:true,accountUsername:env.RAYZA_USERNAME?.trim()||'rayza.huang',accountEmail:env.RAYZA_ACCOUNT_EMAIL?.trim()||'rayza.huang@rayza-five.vercel.app',supabaseUrl:configured?supabaseUrl:'',supabaseKey:configured?key:'',vapidPublicKey,pushConfigured:Boolean(configured&&vapidPublicKey&&env.VAPID_PRIVATE_KEY&&env.VAPID_SUBJECT&&getSupabaseServerKey(env)&&env.CRON_SECRET)};
+  return {configured:Boolean(env.BLOB_READ_WRITE_TOKEN&&env.RAYZA_SESSION_SECRET&&env.RAYZA_PASSWORD_HASH),storage:'vercel-private',singleAccount:true,accountUsername:env.RAYZA_USERNAME||'rayza.huang',vapidPublicKey:env.VAPID_PUBLIC_KEY||'',pushConfigured:Boolean(env.BLOB_READ_WRITE_TOKEN&&env.VAPID_PUBLIC_KEY&&env.VAPID_PRIVATE_KEY&&env.VAPID_SUBJECT)};
 }

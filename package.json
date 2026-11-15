@@ -1,24 +1,22 @@
 {
   "name": "rayza",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/*.test.js",
-    "vapid": "web-push generate-vapid-keys"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.95.3",
+    "@vercel/blob": "2.9.0",
+    "@vercel/queue": "0.11.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.4.1",
-    "esbuild": "^0.25.12",
-    "jsdom": "^16.7.0",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "jsdom": "^16.7.0"
   },
   "engines": {
     "node": ">=22"

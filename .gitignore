@@ -6,3 +6,4 @@ dist/
 .vercel/
 .superdesign/
 *.log
+*.tar.gz
