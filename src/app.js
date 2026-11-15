@@ -21,7 +21,7 @@ function fail(error) {console.error(error?.name||'Operation failed'); const mess
 function empty(type,title,text,action,label) {return `<div class="empty">${icon(type)}<h3>${title}</h3><p>${text}</p>${action?`<button class="btn primary" data-action="${action}">${icon('plus')}${label}</button>`:''}</div>`;}
 function headerButton(action,text,ico='plus',cls='primary') {return `<button class="btn ${cls}" data-action="${action}">${icon(ico)}<span>${text}</span></button>`;}
 function render() {
-  if(!state.user||state.authMode==='update'){app.innerHTML=authView({configured,initializing:state.initializing,mode:state.authMode,notice:state.authNotice,icon,flower,field});return;}
+  if(!state.user||state.authMode==='update'){app.innerHTML=authView({configured,initializing:state.initializing,mode:state.authMode,notice:state.authNotice,icon,flower,field,username:publicConfig.accountUsername||'rayza.huang'});return;}
   const total=state.data.appointments.filter(a=>!a.completed && dateKey(a.starts_at)===dateKey()).length;
   app.innerHTML=`
     <aside class="sidebar">
@@ -111,7 +111,7 @@ function workoutForm(id) {
   const w=state.data.workouts.find(w=>w.id===id)||{days:[],duration:45,exercises:[{name:'',sets:3,reps:'12',weight:'',rest:60}]};
   openDialog(`${dialogHead('UM TEMPO PARA VOCÊ',id?'Ajustar meu treino':'Monte sua rotina.')}<form data-form="workout" data-id="${id||''}">${field('Nome do treino','title',w.title,'text','required maxlength="100" placeholder="Ex.: Treino A — inferiores"')}<div class="form-grid">${field('Foco (opcional)','focus',w.focus,'text','maxlength="100" placeholder="Ex.: Mobilidade"')}${field('Duração estimada (min)','duration',w.duration,'number','required min="1" max="360"')}</div><fieldset class="day-picker"><legend>Em quais dias?</legend>${dayNames.map((name,i)=>`<label><input type="checkbox" name="days" value="${i}" ${w.days.includes(i)?'checked':''}/><span>${name}</span></label>`).join('')}</fieldset><div id="exercise-editors">${w.exercises.map(exerciseRow).join('')}</div><button type="button" class="btn soft full" data-action="add-exercise">${icon('plus')}Adicionar exercício</button>${textarea('Observações (opcional)','notes',w.notes)}${formFoot('Salvar meu treino')}</form>`,true);
 }
-function authForm(mode='login',notice='') {state.authMode=mode;state.authNotice=notice;render();}
+function authForm(mode='login',notice='') {state.authMode='login';state.authNotice=notice;render();}
 
 function settings() {
   const health=state.notificationHealth;
@@ -302,19 +302,19 @@ function translateError(message='') {
   return message||'Não foi possível salvar. Tente novamente.';
 }
 async function submitAuth(form,fd) {
-  const mode=form.dataset.mode,email=fd.get('email'),password=fd.get('password');
-  if(mode==='signup') {
-    const {data,error}=await db.auth.signUp({email,password,options:{data:{name:fd.get('name')},emailRedirectTo:location.origin}});if(error)throw error;
-    if(data.session){await startSession(data.session);return toast('Bem-vinda ao seu cantinho. 💜');}
-    authForm('login','Confira seu e-mail e confirme sua conta pelo link recebido. Depois entre com seu e-mail e senha.');
-  } else if(mode==='reset') {
-    await checked(db.auth.resetPasswordForEmail(email,{redirectTo:location.origin}));
-    authForm('login','Se houver uma conta com esse e-mail, você receberá o link de recuperação. Confira também a caixa de spam.');
-  } else if(mode==='update') {await checked(db.auth.updateUser({password}));state.authMode='login';render();toast('Nova senha salva. 💜');}
-  else {const data=await checked(db.auth.signInWithPassword({email,password}));await startSession(data.session);toast('Seu cantinho estava com saudade. 💜');}
+  const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:fd.get('username'),password:fd.get('password')}),signal:AbortSignal.timeout(25000)});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'Falha ao entrar. Tente novamente.');
+  if(!db)await initializeStore();
+  if(!db)throw Error('A conexao com o Supabase ainda nao foi concluida.');
+  const data=await checked(db.auth.setSession({access_token:result.session.access_token,refresh_token:result.session.refresh_token}));
+  await startSession(data.session);
+  toast('Bem-vinda ao seu cantinho.');
 }
+
 async function startSession(session) {
   requests.invalidate();
+  if(session?.user?.email!==publicConfig.accountEmail){await checked(db.auth.signOut({scope:'local'}));resetSession();throw Error('Este acesso pertence somente a Rayza.');}
   if(!session?.user)throw Error('Não foi possível abrir a sessão. Entre novamente.');
   if(state.user?.id!==session.user.id){state.data=emptyData();state.lastSynced=null;state.selectedDate=null;}
   state.user=session.user;state.authNotice='';state.authMode='login';
@@ -338,7 +338,6 @@ async function boot() {
     await initializeStore();state.initializing=false;render();
     if(!db)return;
     const {data:{subscription}}=db.auth.onAuthStateChange((event,session)=> {
-      if(event==='PASSWORD_RECOVERY')setTimeout(()=>authForm('update'),0);
       if(event==='SIGNED_OUT')resetSession();
       if(event==='TOKEN_REFRESHED'&&session)state.user=session.user;
       if(event==='SIGNED_IN'&&session&&!state.user&&!authBusy)setTimeout(()=>startSession(session).catch(fail),0);

@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {resolveConfig} from '../server/config.js';
+import {resolveConfig,getSupabaseServerKey} from '../server/config.js';
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='GET')return res.status(405).json({error:'Method not allowed'});
@@ -11,8 +11,8 @@ export default async function handler(req,res) {
     const {data:{user},error}=await db.auth.getUser(authorization.slice(7));
     if(error||!user)return res.status(401).json({error:'Sua sessão expirou.'});
     let lastRun=null;
-    if(process.env.SUPABASE_SERVICE_ROLE_KEY){
-      const admin=createClient(config.supabaseUrl,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    if(getSupabaseServerKey()){
+      const admin=createClient(config.supabaseUrl,getSupabaseServerKey(),{auth:{persistSession:false,autoRefreshToken:false}});
       const {data}=await admin.from('reminder_runtime').select('last_run_at').eq('id','scheduler').maybeSingle();
       lastRun=data?.last_run_at||null;
     }

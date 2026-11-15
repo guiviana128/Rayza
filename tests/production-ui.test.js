@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import {backend,page,tick} from './helpers/ui.js';
 async function click(w,selector){const target=w.document.querySelector(selector);assert.ok(target,`Missing ${selector}`);target.click();await tick();}
 async function submit(w,values={}){const form=w.document.querySelector('dialog[open] form')||w.document.querySelector('form[data-form="auth"]');assert.ok(form);for(const [key,value]of Object.entries(values))form.querySelector(`[name="${key}"]`).value=value;form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await tick();}
-async function login(w){await submit(w,{email:'rayza@example.test',password:'password123'});assert.equal(w.document.querySelector('.form-error')?.textContent||'', '', 'Login error');}
+async function login(w){await submit(w,{username:'rayza.huang',password:'test-password'});assert.equal(w.document.querySelector('.form-error')?.textContent||'', '', 'Login error');}
 
 test('production requires login; missing Supabase never presents fake saved activities',async()=> {
   const dom=await page(backend(),{configured:false});try{assert.ok(dom.window.document.querySelector('.auth-page'));assert.equal(dom.window.document.querySelector('.appointment'),null);assert.equal(dom.window.document.querySelector('[data-action="new-appointment"]'),null);assert.match(dom.window.document.body.textContent,/conexão|conectar|configurad/i);}finally{dom.window.close();}
+});
+test('login is a single fixed username without public signup or email field',async()=> {
+  const dom=await page(backend());try{const d=dom.window.document;assert.equal(d.querySelector('[name="username"]').value,'rayza.huang');assert.equal(d.querySelector('[name="username"]').readOnly,true);assert.equal(d.querySelector('[name="email"]'),null);assert.equal(d.querySelector('[data-auth-mode="signup"]'),null);assert.equal(d.querySelector('[name="password"]').value,'');assert.ok(d.querySelector('.auth-card h2'));}finally{dom.window.close();}
 });
 test('create on phone, read on computer, edit and delete survive page reload',async()=> {
   const b=backend(),phone=await page(b);let computer,reload;

@@ -1,7 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import webpush from 'web-push';
 import {authorized,deliverToDevices,ownsClaim} from '../server/push.js';
-import {resolveConfig} from '../server/config.js';
+import {resolveConfig,getSupabaseServerKey} from '../server/config.js';
 
 const must=async query=>{const {data,error}=await query;if(error) throw error;return data;};
 
@@ -11,7 +11,7 @@ export default async function handler(req,res) {
   if(!authorized(req.headers.authorization,process.env.CRON_SECRET)) return res.status(401).json({error:'Unauthorized'});
   const config=resolveConfig();
   if(!config.pushConfigured) return res.status(503).json({error:'Configure database and push environment variables.'});
-  const db=createClient(config.supabaseUrl,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+  const db=createClient(config.supabaseUrl,getSupabaseServerKey(),{auth:{persistSession:false}});
   const deadline=Date.now()+45000;
   let processed=0,failed=0;
   try {

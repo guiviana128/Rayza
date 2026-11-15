@@ -17,3 +17,7 @@ test('only public configuration is returned; missing configuration is explicit',
   assert.equal(c.configured,true);assert.equal(c.pushConfigured,false);assert.equal('CRON_SECRET' in c,false);
   assert.equal(resolveConfig({}).configured,false);
 });
+test('modern Supabase secret naming enables server features without exposing the secret',()=> {
+  const c=resolveConfig({SUPABASE_URL:'https://test.supabase.co',SUPABASE_PUBLISHABLE_KEY:'sb_publishable_example',SUPABASE_SECRET_KEY:'sb_secret_private',VAPID_PUBLIC_KEY:'public',VAPID_PRIVATE_KEY:'private',VAPID_SUBJECT:'https://test.example',CRON_SECRET:'cron'});
+  assert.equal(c.pushConfigured,true);assert.equal(JSON.stringify(c).includes('sb_secret_private'),false);
+});

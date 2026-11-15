@@ -2,12 +2,22 @@
 
 Um cantinho em roxo e lilás para organizar a vida, guardar boas histórias e cuidar de si. Feito com **HTML, CSS e JavaScript**, pronto para hospedar na Vercel.
 
+## Acesso único da Rayza
+
+O fluxo ativo usa apenas o usuário **`rayza.huang`** e a senha definida pelo responsável no servidor. Não há cadastro público, campo de email ou recuperação de senha pela interface. A senha não está no GitHub nem no bundle: sua verificação é feita por `/api/login`, usando hash scrypt guardado na Vercel.
+
+A conta do Supabase é interna: no primeiro login válido, o servidor cria uma conta dedicada já confirmada, se ela ainda não existir, e retorna uma sessão normal do Supabase. Os dados continuam usando as regras de privacidade do banco. A senha interna do Supabase é aleatória e diferente da senha digitada na interface.
+
+Variáveis privadas adicionais em Production: `RAYZA_USERNAME`, `RAYZA_PASSWORD_HASH` (formato `scrypt:saltHex:hashHex`), `RAYZA_ACCOUNT_EMAIL` (identificador interno) e `RAYZA_ACCOUNT_PASSWORD` (segredo aleatório interno). Elas já foram configuradas na entrega. Nunca publique seus valores.
+
+**O login único precisa do banco conectado.** É necessário ter URL/chave pública do Supabase, `SUPABASE_SERVICE_ROLE_KEY`, tabelas e políticas instaladas. Sem isso o login informa a pendência, sem liberar um salvamento temporário. Para concluir, vincule o projeto Supabase ao projeto Vercel `rayza`, no ambiente Production, e execute o schema inicial se ainda não foi instalado. As instruções de cadastro por email das versões anteriores foram substituídas por este acesso único.
+
 ## O que tem aqui
 
 - **Compromissos:** data/hora, categoria, local, notas, antecedência do aviso, edição, conclusão, filtros e calendário.
 - **Lembranças:** fotos privadas, compressão no aparelho, legenda, data, favoritas, busca e visualização ampliada.
 - **Treinos:** criar/editar treinos, dias da semana, exercícios, séries, repetições, carga, descanso, notas e histórico de conclusão diária.
-- **Conta:** email/senha, confirmação, recuperação de acesso e dados separados por usuário.
+- **Conta única:** usuário fixo, senha verificada no servidor e sessão persistida no aparelho.
 - **PWA + Web Push:** instalar no celular e receber lembretes com a página fechada, após configuração e permissão.
 - **Login obrigatório:** a versão publicada não tem mais atividades de demonstração. Sem conexão com o banco, ela informa a pendência e não simula salvamento.
 
@@ -25,7 +35,7 @@ O site agora lê a configuração pública em `/api/config`, no servidor. Isso p
 
 `service_role` e `sb_secret_` nunca são devolvidas por esse endpoint. **Conectar Supabase na sua conta Vercel não basta:** vincule o banco especificamente ao projeto **rayza** e ao ambiente **Production**, confirme que as variáveis apareceram e faça redeploy.
 
-Depois de conectar, crie a conta dela e entre **com o mesmo e-mail e senha no celular e no computador**. O login permanece salvo no navegador. As telas consultam o banco ao entrar, ao voltar para a página e a cada 15 segundos enquanto ela estiver visível; uma edição aberta não é substituída por essa atualização.
+Depois de conectar, entre com o acesso único no celular e no computador. A conta interna é preparada pelo servidor. O login permanece salvo no navegador. As telas consultam o banco ao entrar, ao voltar para a página e a cada 15 segundos enquanto ela estiver visível; uma edição aberta não é substituída por essa atualização.
 
 As ações de salvar/excluir só apresentam sucesso após confirmação do banco. Falhas mantêm os campos para tentar novamente. O mesmo identificador é reutilizado se a resposta de um salvamento se perder, reduzindo duplicações. Tocar no fundo não fecha o formulário; cancelar com mudanças pede confirmação. Filtros são limpos após salvar um compromisso, para que ele não desapareça por ter mudado de dia.
 
@@ -93,7 +103,7 @@ Usamos **Supabase Cron + pg_net → função na Vercel**. Assim o envio independ
 
 ### 5. Ativar no aparelho dela
 
-1. Abra o site publicado, crie a conta, confirme o email e entre.
+1. Abra o site publicado e entre com o usuário único e a senha definida pelo responsável.
 2. Toque no sino → **Ativar neste aparelho** → permita notificações.
 3. **iPhone/iPad (iOS 16.4+):** primeiro abra pelo Safari → Compartilhar → **Adicionar à Tela de Início**. Abra pelo ícone instalado e então ative os avisos.
 4. **Android/computador:** use Chrome/Edge/Firefox ou outro navegador compatível; instalar é recomendado no celular.

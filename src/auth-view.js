@@ -1,4 +1,25 @@
-export function authView({configured,initializing,mode,notice,icon,flower,field}) {
-  const signup=mode==='signup',reset=mode==='reset',update=mode==='update';
-  return `<main class="auth-page" id="main"><section class="auth-story"><a class="auth-brand" href="/">${flower}<span>rayza.</span></a><div class="auth-story-copy"><span class="eyebrow">UM CANTINHO SÓ SEU</span><h1>Seus dias.<br>Suas histórias.<br><em>Do seu jeitinho.</em></h1><p>Um espaço para organizar seus planos, guardar lembranças e cuidar de você.</p><div class="auth-features"><span>${icon('calendar')} Seus compromissos</span><span>${icon('image')} Suas lembranças</span><span>${icon('dumbbell')} Seus treinos</span></div></div><span class="auth-love">com amor, para Rayza ♡</span><div class="auth-petal">${flower}</div></section><section class="auth-panel"><div class="auth-card"><span class="eyebrow">${initializing?'ABRINDO SEU CANTINHO':'SUAS COISAS, SEMPRE COM VOCÊ'}</span><h2>${signup?'Comece sua história.':reset?'Vamos recuperar seu acesso.':update?'Uma nova senha.':'Que bom ter você aqui.'}</h2><p class="auth-description">Entre com a mesma conta no celular e no computador. Seus compromissos, fotos e treinos ficam salvos no seu espaço particular.</p>${notice?`<div class="auth-notice" role="status">${notice}</div>`:''}${initializing?'<p class="loading">Conferindo sua conexão…</p>':!configured?`<div class="connection-required" role="alert">${icon('lock')}<div><strong>Falta conectar o banco de dados.</strong><p>Este site ainda não recebeu a configuração do Supabase na Vercel. Seus dados só poderão ser salvos depois dessa conexão.</p><p>Nenhuma atividade de demonstração será apresentada como salva.</p></div></div><button class="btn primary full" data-action="retry-connection">Tentar conexão novamente</button>`:`<form data-form="auth" data-mode="${mode}">${signup?field('Seu nome','name','Rayza','text','required maxlength="50" autocomplete="given-name"'):''}${!update?field('Seu e-mail','email','','email','required autocomplete="email" inputmode="email"'):''}${!reset?field(signup||update?'Sua senha (mínimo 8 caracteres)':'Sua senha','password','','password',`required minlength="8" maxlength="128" autocomplete="${signup||update?'new-password':'current-password'}"`):''}<p class="form-error" role="alert"></p><button class="btn primary full" type="submit">${icon('heart')}${signup?'Criar minha conta':reset?'Enviar link de recuperação':update?'Salvar nova senha':'Entrar no meu cantinho'}</button>${mode==='login'?'<button class="text-button centered" type="button" data-auth-mode="reset">Esqueci minha senha</button>':''}${!update?`<p class="auth-switch">${signup?'Já tem uma conta?':'Primeira vez aqui?'} <button type="button" data-auth-mode="${signup?'login':'signup'}">${signup?'Entrar':'Criar conta'}</button></p>`:''}</form>`}<div class="auth-private">${icon('lock')} Seus dados ficam vinculados à sua conta.</div></div></section></main>`;
+import {escapeHTML} from './domain.js';
+export function authView({configured,initializing,notice,icon,flower,field,username}) {
+  const login=initializing?'<p class="loading">Conferindo sua conexão…</p>':`
+    <form data-form="auth" data-mode="login">
+      ${field('Usuário','username',username||'rayza.huang','text','required readonly autocomplete="username"')}
+      ${field('Sua senha','password','','password','required maxlength="128" autocomplete="current-password"')}
+      <p class="form-error" role="alert"></p>
+      <button class="btn primary full" type="submit">${icon('heart')}Entrar no meu cantinho</button>
+    </form>
+    ${!configured?'<div class="connection-required" role="status"><p>O acesso é exclusivo da Rayza. A conexão com o banco ainda precisa ser concluída pelo responsável pelo site.</p></div>':''}`;
+  return `<main class="auth-page" id="main">
+    <section class="auth-story">
+      <a class="auth-brand" href="/">${flower}<span>rayza.</span></a>
+      <div class="auth-story-copy"><span class="eyebrow">UM CANTINHO SÓ SEU</span><h1>Seus dias.<br>Suas histórias.<br><em>Do seu jeitinho.</em></h1><p>Um espaço para organizar seus planos, guardar lembranças e cuidar de você.</p><div class="auth-features"><span>${icon('calendar')} Seus compromissos</span><span>${icon('image')} Suas lembranças</span><span>${icon('dumbbell')} Seus treinos</span></div></div>
+      <span class="auth-love">com amor, para Rayza ♡</span><div class="auth-petal">${flower}</div>
+    </section>
+    <section class="auth-panel"><div class="auth-card">
+      <span class="eyebrow">SEU ACESSO EXCLUSIVO</span><h2>Que bom ter você aqui.</h2>
+      <p class="auth-description">Use seu acesso no celular e no computador. Seus compromissos, fotos e treinos ficam salvos no seu espaço particular.</p>
+      ${notice?`<div class="auth-notice" role="status">${escapeHTML(notice)}</div>`:''}
+      ${login}
+      <div class="auth-private">${icon('lock')} Um cantinho exclusivo para você.</div>
+    </div></section>
+  </main>`;
 }

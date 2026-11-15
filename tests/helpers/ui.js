@@ -7,7 +7,7 @@ const script=bundle.output.find(f=>f.type==='chunk'&&f.isEntry).code;
 export const tick=()=>new Promise(r=>setTimeout(r,30));
 export function backend(){return {session:null,tables:{appointments:[],memories:[],workouts:[],workout_logs:[],push_subscriptions:[]},failWrites:false,failPushRead:false,delayWrite:null};}
 function fakeClient(b) {
-  return {auth:{getSession:async()=>({data:{session:b.session},error:null}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),signInWithPassword:async()=>{b.session={user:{id:'user-one',user_metadata:{name:'Rayza'}},access_token:'test-token'};return {data:{session:b.session},error:null};},signOut:async()=>{b.session=null;return {error:null};}},
+  return {auth:{getSession:async()=>({data:{session:b.session},error:null}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),setSession:async()=>({data:{session:b.session},error:null}),signOut:async()=>{b.session=null;return {error:null};}},
     from(table){let mode='select',value,filters=[],single=false,limit=Infinity;
       const q={select(){return q;},eq(k,v){filters.push([k,v]);return q;},update(v){mode='update';value=v;return q;},insert(v){mode='insert';value=v;return q;},upsert(v){mode='upsert';value=v;return q;},delete(){mode='delete';return q;},single(){single=true;return q;},maybeSingle(){single=true;return q;},limit(v){limit=v;return q;},abortSignal(){return q;},then(resolve,reject){return (async()=>{
         if(table==='push_subscriptions'&&b.failPushRead)return {data:null,error:{message:'push table unavailable'}};
@@ -25,6 +25,7 @@ function fakeClient(b) {
 }
 export async function page(b,{configured=true}={}) {
   const dom=new JSDOM('<div id="app"></div><div id="toast"></div><dialog id="editor"></dialog>',{url:'https://rayza.test/',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window;
+  if(b.session)b.session.user.email='rayza.huang@rayza-five.vercel.app';
   w.crypto=webcrypto;w.AbortSignal=globalThis.AbortSignal;w.__testClient=fakeClient(b);
   const OriginalFormData=w.FormData;
   w.FormData=class extends OriginalFormData{constructor(form){super(form);if(w.__testPhoto&&form?.querySelector('[name="photo"]'))this.set('photo',w.__testPhoto);}};
@@ -33,7 +34,10 @@ export async function page(b,{configured=true}={}) {
   w.HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});
   w.HTMLCanvasElement.prototype.toBlob=function(callback){callback(new w.Blob(['photo'],{type:'image/jpeg'}));};
   if(b.failPushRead){w.PushManager=function(){};Object.defineProperty(w.navigator,'serviceWorker',{value:{register:async()=>({}),getRegistration:async()=>({pushManager:{getSubscription:async()=>({endpoint:'https://fcm.googleapis.com/test'})}})}});}
-  w.fetch=async()=>({ok:true,json:async()=>({configured,supabaseUrl:configured?'https://test.supabase.co':'',supabaseKey:configured?'sb_publishable_example':'',vapidPublicKey:''})});
+  w.fetch=async url=>{
+    if(url==='/api/login'){b.session={user:{id:'user-one',email:'rayza.huang@rayza-five.vercel.app',user_metadata:{name:'Rayza'}},access_token:'test-token',refresh_token:'test-refresh'};return {ok:true,json:async()=>({session:b.session})};}
+    return {ok:true,json:async()=>({configured,accountUsername:'rayza.huang',accountEmail:'rayza.huang@rayza-five.vercel.app',supabaseUrl:configured?'https://test.supabase.co':'',supabaseKey:configured?'sb_publishable_example':'',vapidPublicKey:''})};
+  };
   w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   w.eval(script);await tick();return dom;
 }

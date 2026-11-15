@@ -12,7 +12,7 @@ export async function initializeStore() {
     publicConfig=await response.json();
   } catch {
     // Permite desenvolvimento Vite local, onde as funções /api não são executadas.
-    publicConfig={...fallback,configured:Boolean(fallback.supabaseUrl?.startsWith('https://')&&fallback.supabaseKey&&!fallback.supabaseUrl.includes('SEU-PROJETO')&&!fallback.supabaseKey.includes('SUA_CHAVE')),pushConfigured:false};
+    publicConfig={...fallback,accountUsername:'rayza.huang',accountEmail:'rayza.huang@rayza-five.vercel.app',configured:Boolean(fallback.supabaseUrl?.startsWith('https://')&&fallback.supabaseKey&&!fallback.supabaseUrl.includes('SEU-PROJETO')&&!fallback.supabaseKey.includes('SUA_CHAVE')),pushConfigured:false};
   }
   configured=publicConfig.configured===true;
   db=configured?createClient(publicConfig.supabaseUrl,publicConfig.supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
