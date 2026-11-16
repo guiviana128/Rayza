@@ -1,5 +1,5 @@
 import './style.css';
-import {escapeHTML as e,validateAppointment,validateWorkout,validateFinance,toLocalInput,formatDate,dateKey,monthKey,formatBRL,dayNames,RequestGuard} from './domain.js';
+import {escapeHTML as e,validateAppointment,validateWorkout,validateFinance,toLocalInput,formatDate,dateKey,monthKey,shiftMonth,formatBRL,dayNames,RequestGuard} from './domain.js';
 import {deleteMemorySafely} from './operations.js';
 import {db,configured,checked,loadData,saveRow,deleteRow,preparePhoto,uploadPhoto,initializeStore,publicConfig,removePhoto,request,lastSaveWarning} from './store.js';
 import {authView} from './auth-view.js';
@@ -11,7 +11,7 @@ const flower=`<svg class="flower" viewBox="0 0 100 100" aria-hidden="true"><g fi
 const categories={pessoal:['Pessoal','heart'],saude:['Autocuidado','spark'],estudo:['Estudos','calendar'],encontro:['A dois','heart'],outro:['Outros','calendar']};
 const tabs={compromissos:['Compromissos','calendar','Seu tempo, com mais leveza.'],lembrancas:['Lembranças','image','Alguns momentos merecem ficar.'],treinos:['Treinos','dumbbell','Um carinho por você, a cada movimento.'],financeiro:['Financeiro','wallet','Cuidando do que constrói seus sonhos.']};
 const emptyData=()=>({appointments:[],memories:[],workouts:[],logs:[],finances:[]});
-let state={user:null,data:emptyData(),initializing:true,authMode:'login',authNotice:'',syncError:'',lastSynced:null,tab:location.hash.slice(1) in tabs?location.hash.slice(1):'compromissos',filter:'proximos',memoryFilter:'todas',workoutFilter:'todos',financeFilter:'todos',financeMonth:monthKey(new Date()),calendar:new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate:null,notify:false,loading:false,search:''};
+let state={user:null,data:emptyData(),initializing:true,authMode:'login',authNotice:'',syncError:'',lastSynced:null,tab:location.hash.slice(1) in tabs?location.hash.slice(1):'compromissos',filter:'proximos',memoryFilter:'todas',workoutFilter:'todos',financeFilter:'todos',financeCard:'todos',financeMonth:monthKey(new Date()),calendar:new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate:null,notify:false,loading:false,search:''};
 let deferredInstall=null, photoPreview=null, editorDirty=false,saving=false,authSubscription=null,authBusy=false;
 const requests=new RequestGuard();
 const app=document.querySelector('#app'),dialog=document.querySelector('#editor');
@@ -91,12 +91,34 @@ function financesView() {
   const balance=totalIncome-totalExpense;
   const pendingCount=monthItems.filter(f=>f.status==='pendente').length;
 
+  const cardExpenses=monthItems.filter(f=>f.type==='expense'&&(f.payment_method==='credito'||f.payment_method==='debito'));
+  const cardTotal=cardExpenses.reduce((sum,f)=>sum+(Number(f.amount)||0),0);
+  const cardPaid=cardExpenses.filter(f=>f.status==='pago').reduce((sum,f)=>sum+(Number(f.amount)||0),0);
+  const cardPending=cardTotal-cardPaid;
+
+  const cardMap=new Map();
+  cardExpenses.forEach(f=>{
+    const cName=(f.card_name||'Outro cartão').trim();
+    const cur=cardMap.get(cName)||{total:0,paid:0,pending:0,count:0};
+    const val=Number(f.amount)||0;
+    cur.total+=val;
+    if(f.status==='pago') cur.paid+=val; else cur.pending+=val;
+    cur.count++;
+    cardMap.set(cName,cur);
+  });
+
   let items=[...monthItems];
   if(state.financeFilter==='saidas') items=items.filter(f=>f.type==='expense');
   else if(state.financeFilter==='entradas') items=items.filter(f=>f.type==='income');
   else if(state.financeFilter==='pendentes') items=items.filter(f=>f.status==='pendente');
   else if(state.financeFilter==='pagos') items=items.filter(f=>f.status==='pago');
   else if(state.financeFilter==='pix') items=items.filter(f=>f.payment_method==='pix');
+  else if(state.financeFilter==='cartao') {
+    items=items.filter(f=>f.payment_method==='credito'||f.payment_method==='debito');
+    if(state.financeCard&&state.financeCard!=='todos') {
+      items=items.filter(f=>(f.card_name||'Outro cartão').trim().toLowerCase()===state.financeCard.trim().toLowerCase());
+    }
+  }
   items.sort((a,b)=>b.date.localeCompare(a.date));
 
   const categoryMap=new Map();
@@ -106,14 +128,149 @@ function financesView() {
   });
   const topCategories=[...categoryMap.entries()].sort((a,b)=>b[1]-a[1]);
 
+  const visibleMonths=[-2,-1,0,1,2].map(offset=>shiftMonth(currentMonth,offset));
+  const monthTabsHtml=visibleMonths.map(m=>{
+    const isAct=m===currentMonth;
+    const isNow=m===monthKey(new Date());
+    const label=formatDate(`${m}-01T12:00:00`,{month:'short',year:'2-digit'}).toUpperCase();
+    return `<button type="button" class="finance-month-tab ${isAct?'active':''} ${isNow?'is-current':''}" data-action="set-finance-month" data-month="${m}" aria-label="Aba do mês ${label}">${label}${isNow?`<span class="now-dot" title="Mês atual"></span>`:''}</button>`;
+  }).join('');
+
+  const selectedCardStats=(state.financeCard&&state.financeCard!=='todos')
+    ? cardMap.get(state.financeCard)||{total:0,paid:0,pending:0,count:0}
+    : {total:cardTotal,paid:cardPaid,pending:cardPending,count:cardExpenses.length};
+
   return `<section class="workout-hero finance-hero"><div><div class="eyebrow">CLAREZA &amp; PROSPERIDADE</div><h2>Finanças &amp;<br><em>pequenas conquistas.</em></h2><p>Acompanhe suas entradas, gerencie seus gastos e cuide do que é seu com carinho e tranquilidade.</p><span class="workout-badge">${icon('heart')} Cuidar do seu dinheiro também é um gesto de amor-próprio.</span></div><div class="workout-art finance-art">${icon('wallet')}<span>cada conquista<br><em>no seu tempo</em></span><i>✧</i></div></section>
-    <div class="finance-period-bar"><div class="finance-period-title"><button class="icon-btn rotate" data-action="prev-finance-month" aria-label="Mês anterior">${icon('chevron')}</button><h3>${formatDate(`${currentMonth}-01T12:00:00`,{month:'long',year:'numeric'}).toUpperCase()}</h3><button class="icon-btn" data-action="next-finance-month" aria-label="Próximo mês">${icon('chevron')}</button></div><div class="finance-period-actions">${currentMonth!==monthKey(new Date())?`<button class="btn soft" data-action="current-finance-month">${icon('clock')} Mês atual</button>`:''}</div></div>
+    <div class="finance-period-bar">
+      <div class="finance-period-title"><button class="icon-btn rotate" data-action="prev-finance-month" aria-label="Mês anterior">${icon('chevron')}</button><h3>${formatDate(`${currentMonth}-01T12:00:00`,{month:'long',year:'numeric'}).toUpperCase()}</h3><button class="icon-btn" data-action="next-finance-month" aria-label="Próximo mês">${icon('chevron')}</button></div>
+      <div class="finance-month-pills" role="tablist" aria-label="Abas dos meses">${monthTabsHtml}</div>
+      <div class="finance-period-actions">${currentMonth!==monthKey(new Date())?`<button class="btn soft" data-action="current-finance-month">${icon('clock')} Mês atual</button>`:''}</div>
+    </div>
     <div class="stats-grid">${statsCard('arrow',formatBRL(totalIncome),'entradas no mês','sage')}${statsCard('wallet',formatBRL(totalExpense),`gastos (${formatBRL(paidExpense)} pagos)`,'peach')}${statsCard('spark',formatBRL(balance),balance>=0?'saldo previsto':'saldo negativo',balance>=0?'':'peach')}</div>
-    ${topCategories.length?`<div class="category-summary-box"><div class="category-summary-header"><span>${icon('spark')} <strong>Gastos por categoria neste mês</strong> (ex.: ração do Bryan, mercado, etc.):</span></div><div class="category-chips-list">${topCategories.map(([cat,total])=>`<div class="category-summary-chip"><span class="chip-name">${e(cat)}</span><strong>${formatBRL(total)}</strong></div>`).join('')}</div></div>`:''}
+    ${cardExpenses.length?`<div class="category-summary-box card-summary-box"><div class="category-summary-header"><span>${icon('wallet')} <strong>Fatura dos cartões neste mês:</strong></span><button type="button" class="text-button" data-action="open-card-view">${icon('arrow')} Ver tabela de cartões</button></div><div class="category-chips-list"><button type="button" class="category-summary-chip card-summary-chip clickable ${state.financeFilter==='cartao'&&state.financeCard==='todos'?'active':''}" data-action="select-card" data-card="todos"><span class="chip-name">Todos os cartões</span><strong class="font-numbers">${formatBRL(cardTotal)}</strong><small>(${formatBRL(cardPending)} pendente)</small></button>${[...cardMap.entries()].map(([c,st])=>`<button type="button" class="category-summary-chip card-summary-chip clickable ${state.financeFilter==='cartao'&&state.financeCard===c?'active':''}" data-action="select-card" data-card="${e(c)}"><span class="chip-name">${e(c)}</span><strong class="font-numbers">${formatBRL(st.total)}</strong><small>${st.pending>0?`· ${formatBRL(st.pending)} a pagar`:'· Tudo pago ✓'}</small></button>`).join('')}</div></div>`:''}
+    ${topCategories.length?`<div class="category-summary-box"><div class="category-summary-header"><span>${icon('spark')} <strong>Gastos por categoria neste mês</strong> (ex.: ração do Bryan, mercado, etc.):</span></div><div class="category-chips-list">${topCategories.map(([cat,total])=>`<div class="category-summary-chip"><span class="chip-name">${e(cat)}</span><strong class="font-numbers">${formatBRL(total)}</strong></div>`).join('')}</div></div>`:''}
     <div class="section-heading"><div><div class="eyebrow">FLUXO &amp; GERENCIADOR</div><h2>Extrato e pagamentos<span>.</span></h2><p>Controle gastos pagos ou pendentes, cartões utilizados e transferências via Pix.</p></div><div class="heading-actions">${headerButton('new-income','Nova entrada','plus','soft')}${headerButton('new-expense','Novo gasto','plus','primary')}</div></div>
-    <div class="routine-toolbar"><div class="filters" role="group" aria-label="Filtrar lançamentos financeiros">${[['todos','Todos',monthItems.length],['saidas','Saídas (Gastos)',monthItems.filter(f=>f.type==='expense').length],['entradas','Entradas',monthItems.filter(f=>f.type==='income').length],['pendentes','Pendentes',pendingCount],['pagos','Pagos / Recebidos',monthItems.filter(f=>f.status==='pago').length],['pix','Área Pix',monthItems.filter(f=>f.payment_method==='pix').length]].map(([key,label,count])=>`<button class="filter ${state.financeFilter===key?'active':''}" data-finance-filter="${key}">${label} ${count!==undefined?`<span>${count}</span>`:''}</button>`).join('')}</div><span>${items.length} registro${items.length===1?'':'s'}</span></div>
-    <section class="finance-list" aria-label="Lançamentos financeiros">${items.length?items.map(financeCard).join(''):empty('wallet','Nenhum lançamento encontrado',state.financeFilter!=='todos'?'Nenhum registro encontrado para este filtro.':'Anote seus gastos mensais ou registre entradas como seu salário ou VR.','new-expense','Adicionar primeiro gasto')}</section>
+    <div class="routine-toolbar"><div class="filters" role="group" aria-label="Filtrar lançamentos financeiros">${[['todos','Todos',monthItems.length],['saidas','Saídas (Gastos)',monthItems.filter(f=>f.type==='expense').length],['entradas','Entradas',monthItems.filter(f=>f.type==='income').length],['cartao','Cartões',cardExpenses.length],['pendentes','Pendentes',pendingCount],['pagos','Pagos / Recebidos',monthItems.filter(f=>f.status==='pago').length],['pix','Área Pix',monthItems.filter(f=>f.payment_method==='pix').length]].map(([key,label,count])=>`<button class="filter ${state.financeFilter===key?'active':''}" data-finance-filter="${key}">${label} ${count!==undefined?`<span>${count}</span>`:''}</button>`).join('')}</div><span>${items.length} registro${items.length===1?'':'s'}</span></div>
+    ${state.financeFilter==='cartao'
+      ? cardTableView(items, state.financeCard, selectedCardStats, cardMap, cardTotal, cardExpenses)
+      : `<section class="finance-list" aria-label="Lançamentos financeiros">${items.length?items.map(financeCard).join(''):empty('wallet','Nenhum lançamento encontrado',state.financeFilter!=='todos'?'Nenhum registro encontrado para este filtro.':'Anote seus gastos mensais ou registre entradas como seu salário ou VR.','new-expense','Adicionar primeiro gasto')}</section>`
+    }
     <div class="gentle-note">${icon('spark')} Dica: toque no botão de status (Pago / Pendente) para alternar rapidamente com 1 clique.</div>`;
+}
+
+function cardTableView(items, activeCard, stats, cardMap, totalCard, cardExpenses) {
+  const isAll = !activeCard || activeCard === 'todos';
+  const cardTitle = isAll ? 'Todos os cartões' : e(activeCard);
+  const cardNames = [...cardMap.keys()];
+  return `
+    <div class="finance-card-section">
+      <div class="card-selector-bar" role="group" aria-label="Filtrar por cartão">
+        <span class="selector-label">${icon('wallet')} Filtrar por cartão:</span>
+        <div class="card-pills-list">
+          <button type="button" class="card-pill-btn ${isAll?'active':''}" data-action="select-card" data-card="todos">
+            <span>Todos os cartões</span>
+            <strong class="font-numbers">${formatBRL(totalCard)}</strong>
+          </button>
+          ${cardNames.map(c => {
+            const st = cardMap.get(c);
+            const act = !isAll && activeCard.toLowerCase() === c.toLowerCase();
+            return `<button type="button" class="card-pill-btn ${act?'active':''}" data-action="select-card" data-card="${e(c)}">
+              <span>${e(c)}</span>
+              <strong class="font-numbers">${formatBRL(st.total)}</strong>
+              ${st.pending > 0 ? `<span class="pill-badge pending">R$ ${Math.round(st.pending)}</span>` : `<span class="pill-badge paid">✓</span>`}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="finance-table-card">
+        <div class="finance-table-banner">
+          <div class="card-banner-info">
+            <div class="card-brand-chip">${icon('wallet')} <strong>${cardTitle}</strong></div>
+            <div class="card-banner-metrics">
+              <div class="metric"><small>Fatura do mês</small> <strong class="font-numbers">${formatBRL(stats.total)}</strong></div>
+              <div class="metric paid"><small>Já pago</small> <strong class="font-numbers paid-num">${formatBRL(stats.paid)}</strong></div>
+              <div class="metric pending"><small>Pendente (a pagar)</small> <strong class="font-numbers pending-num">${formatBRL(stats.pending)}</strong></div>
+            </div>
+          </div>
+          <div class="card-banner-actions">
+            ${stats.pending > 0 ? `<button type="button" class="btn soft btn-sm" data-action="pay-all-card" data-card="${e(activeCard||'todos')}">${icon('check')} Quitar pendentes</button>` : `<span class="all-paid-badge">${icon('check')} Fatura quitada! 💜</span>`}
+          </div>
+        </div>
+
+        ${items.length ? `
+          <div class="table-responsive">
+            <table class="finance-interactive-table" aria-label="Extrato do cartão">
+              <thead>
+                <tr>
+                  <th scope="col">Data</th>
+                  <th scope="col">Descrição</th>
+                  <th scope="col">Categoria</th>
+                  <th scope="col">Cartão / Modo</th>
+                  <th scope="col" class="text-right">Valor</th>
+                  <th scope="col" class="text-center">Status</th>
+                  <th scope="col" class="text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(cardTableRow).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `<div class="empty-card-table">${icon('wallet')}<h3>Nenhum lançamento no cartão</h3><p>Não há lançamentos registrados para ${cardTitle} neste mês.</p></div>`}
+
+        <div class="finance-table-footer">
+          <span>${items.length} registro${items.length===1?'':'s'}</span>
+          <div class="table-footer-totals">
+            <span>Fatura: <strong class="font-numbers">${formatBRL(stats.total)}</strong></span>
+            <span>Pago: <strong class="font-numbers paid-num">${formatBRL(stats.paid)}</strong></span>
+            <span>A pagar: <strong class="font-numbers pending-num">${formatBRL(stats.pending)}</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function cardTableRow(f) {
+  const isPaid = f.status === 'pago';
+  return `
+    <tr class="table-row ${isPaid?'is-paid':'is-pending'}">
+      <td class="col-date">
+        <span class="date-badge">${formatDate(`${f.date}T12:00:00`,{day:'2-digit',month:'short'})}</span>
+      </td>
+      <td class="col-title">
+        <div class="title-cell">
+          <strong>${e(f.title)}</strong>
+          ${f.notes ? `<small class="row-notes">${e(f.notes)}</small>` : ''}
+        </div>
+      </td>
+      <td class="col-category">
+        <span class="finance-category">${e(f.category || 'Geral')}</span>
+      </td>
+      <td class="col-card">
+        <span class="payment-tag card">
+          ${icon('wallet')}
+          <strong>${e(f.card_name || 'Cartão')}</strong> · ${f.payment_method === 'credito' ? 'Crédito' : 'Débito'}
+        </span>
+      </td>
+      <td class="col-amount text-right">
+        <strong class="finance-amount expense font-numbers">- ${formatBRL(f.amount)}</strong>
+      </td>
+      <td class="col-status text-center">
+        <button type="button" class="finance-status-btn ${isPaid?'paid':'pending'}" data-action="toggle-finance-status" data-id="${f.id}" aria-label="Alternar status de ${e(f.title)}" title="Clique para alternar entre Pago e Pendente">
+          ${isPaid ? icon('check') : icon('clock')}
+          <span>${isPaid ? 'Pago' : 'Pendente'}</span>
+        </button>
+      </td>
+      <td class="col-actions text-right">
+        <div class="card-actions">
+          <button class="icon-btn" data-action="edit-finance" data-id="${f.id}" aria-label="Editar ${e(f.title)}">${icon('edit')}</button>
+          <button class="icon-btn danger" data-action="delete-finance" data-id="${f.id}" aria-label="Excluir ${e(f.title)}">${icon('trash')}</button>
+        </div>
+      </td>
+    </tr>
+  `;
 }
 
 function financeCard(f) {
@@ -121,7 +278,7 @@ function financeCard(f) {
   const statusLabel=isExpense?(isPaid?'Pago':'Pendente'):(isPaid?'Recebido':'Previsto');
   const methodLabels={credito:'Cartão de Crédito',debito:'Cartão de Débito',pix:'Pix',dinheiro:'Dinheiro',outro:'Outro'};
   const methodLabel=methodLabels[f.payment_method]||'Outro';
-  return `<article class="finance-card ${isExpense?'expense':'income'} ${isPaid?'is-paid':'is-pending'}"><button class="finance-status-btn ${isPaid?(isExpense?'paid':'received'):'pending'}" data-action="toggle-finance-status" data-id="${f.id}" aria-label="Alternar status de ${e(f.title)}">${isPaid?icon('check'):icon('clock')}<span>${statusLabel}</span></button><div class="finance-content"><div class="finance-top"><div class="finance-title-group"><h3>${e(f.title)}</h3><span class="finance-category ${isExpense?'':'income-tag'}">${e(f.category||(isExpense?'Geral':'Renda'))}</span></div><strong class="finance-amount ${isExpense?'expense':'income'}">${isExpense?'-':'+'} ${formatBRL(f.amount)}</strong></div><div class="finance-meta"><span>${icon('calendar')} ${formatDate(`${f.date}T12:00:00`,{day:'numeric',month:'short'})}</span>${isExpense?(f.payment_method==='pix'?`<span class="payment-tag pix" title="Identificação do Pix">${icon('arrow')} Pix · Destinatário: <strong>${e(f.pix_recipient||'Não identificado')}</strong></span>`:(f.payment_method==='credito'||f.payment_method==='debito')?`<span class="payment-tag card">${icon('wallet')} ${f.card_name?`<strong>${e(f.card_name)}</strong> · `:''}${f.payment_method==='credito'?'Crédito':'Débito'}</span>`:`<span class="payment-tag">${methodLabel}</span>`):`<span class="payment-tag income-method">${icon('arrow')} ${methodLabel}${f.pix_recipient?` · <strong>${e(f.pix_recipient)}</strong>`:''}</span>`}</div>${f.notes?`<p class="finance-notes">${e(f.notes)}</p>`:''}</div><div class="card-actions"><button class="icon-btn" data-action="edit-finance" data-id="${f.id}" aria-label="Editar ${e(f.title)}">${icon('edit')}</button><button class="icon-btn danger" data-action="delete-finance" data-id="${f.id}" aria-label="Excluir ${e(f.title)}">${icon('trash')}</button></div></article>`;
+  return `<article class="finance-card ${isExpense?'expense':'income'} ${isPaid?'is-paid':'is-pending'}"><button class="finance-status-btn ${isPaid?(isExpense?'paid':'received'):'pending'}" data-action="toggle-finance-status" data-id="${f.id}" aria-label="Alternar status de ${e(f.title)}">${isPaid?icon('check'):icon('clock')}<span>${statusLabel}</span></button><div class="finance-content"><div class="finance-top"><div class="finance-title-group"><h3>${e(f.title)}</h3><span class="finance-category ${isExpense?'':'income-tag'}">${e(f.category||(isExpense?'Geral':'Renda'))}</span></div><strong class="finance-amount ${isExpense?'expense':'income'} font-numbers">${isExpense?'-':'+'} ${formatBRL(f.amount)}</strong></div><div class="finance-meta"><span>${icon('calendar')} ${formatDate(`${f.date}T12:00:00`,{day:'numeric',month:'short'})}</span>${isExpense?(f.payment_method==='pix'?`<span class="payment-tag pix" title="Identificação do Pix">${icon('arrow')} Pix · Destinatário: <strong>${e(f.pix_recipient||'Não identificado')}</strong></span>`:(f.payment_method==='credito'||f.payment_method==='debito')?`<button type="button" class="payment-tag card clickable" data-action="select-card" data-card="${e(f.card_name||'todos')}" title="Clique para abrir tabela deste cartão">${icon('wallet')} ${f.card_name?`<strong>${e(f.card_name)}</strong> · `:''}${f.payment_method==='credito'?'Crédito':'Débito'}</button>`:`<span class="payment-tag">${methodLabel}</span>`):`<span class="payment-tag income-method">${icon('arrow')} ${methodLabel}${f.pix_recipient?` · <strong>${e(f.pix_recipient)}</strong>`:''}</span>`}</div>${f.notes?`<p class="finance-notes">${e(f.notes)}</p>`:''}</div><div class="card-actions"><button class="icon-btn" data-action="edit-finance" data-id="${f.id}" aria-label="Editar ${e(f.title)}">${icon('edit')}</button><button class="icon-btn danger" data-action="delete-finance" data-id="${f.id}" aria-label="Excluir ${e(f.title)}">${icon('trash')}</button></div></article>`;
 }
 
 function closeDialog(force=false) {
@@ -154,7 +311,10 @@ function workoutForm(id) {
   openDialog(`${dialogHead('UM TEMPO PARA VOCÊ',id?'Ajustar meu treino':'Monte sua rotina.')}<form data-form="workout" data-id="${id||''}">${field('Nome do treino','title',w.title,'text','required maxlength="100" placeholder="Ex.: Treino A — inferiores"')}<div class="form-grid">${field('Foco (opcional)','focus',w.focus,'text','maxlength="100" placeholder="Ex.: Mobilidade"')}${field('Duração estimada (min)','duration',w.duration,'number','required min="1" max="360"')}</div><fieldset class="day-picker"><legend>Em quais dias?</legend>${dayNames.map((name,i)=>`<label><input type="checkbox" name="days" value="${i}" ${w.days.includes(i)?'checked':''}/><span>${name}</span></label>`).join('')}</fieldset><div id="exercise-editors">${w.exercises.map(exerciseRow).join('')}</div><button type="button" class="btn soft full" data-action="add-exercise">${icon('plus')}Adicionar exercício</button>${textarea('Observações (opcional)','notes',w.notes)}${formFoot('Salvar meu treino')}</form>`,true);
 }
 function financeForm(id,defaultType='expense') {
-  const f=state.data.finances.find(f=>f.id===id)||{type:defaultType,title:'',amount:'',date:dateKey(),category:'',payment_method:defaultType==='income'?'pix':'credito',card_name:'',pix_recipient:'',status:defaultType==='income'?'pago':'pendente',notes:''};
+  const activeMonth=state.financeMonth||monthKey(new Date());
+  const isCurrentMonth=activeMonth===monthKey(new Date());
+  const defaultDate=isCurrentMonth?dateKey():`${activeMonth}-01`;
+  const f=state.data.finances.find(f=>f.id===id)||{type:defaultType,title:'',amount:'',date:defaultDate,category:'',payment_method:defaultType==='income'?'pix':'credito',card_name:'',pix_recipient:'',status:defaultType==='income'?'pago':'pendente',notes:''};
   const isIncome=f.type==='income';
   const userCategories=[...new Set((state.data.finances||[]).filter(x=>x.type===f.type&&x.category).map(x=>x.category.trim()))];
   const defaultExpenseCategories=['Ração do Bryan','Pet & Bryan','Mercado & Feira','Alimentação & Delivery','Saúde & Farmácia','Casa & Contas','Transporte & Uber','Combustível','Lazer & Restaurantes','Assinaturas & Streaming','Cuidados Pessoais','Vestuário','Outros'];
@@ -162,7 +322,10 @@ function financeForm(id,defaultType='expense') {
   const categorySuggestions=[...new Set([...(isIncome?defaultIncomeCategories:defaultExpenseCategories),...userCategories])];
   const defaultCards=['Nubank','Itaú','Inter','C6 Bank','XP','Bradesco','Santander','Outro cartão'];
 
-  openDialog(`${dialogHead(isIncome?'ENTRADA DE RENDA':'SAÍDA / GASTO',id?(isIncome?'Editar entrada':'Editar gasto'):(isIncome?'Nova entrada de renda':'Novo gasto'))}<form data-form="finance" data-id="${id||''}"><input type="hidden" name="type" value="${f.type}" />${field(isIncome?'Origem da renda / Título':'O que foi esse gasto?','title',f.title,'text',`required maxlength="120" placeholder="${isIncome?'Ex.: Salário, Pagamento da Maria, VR...':'Ex.: Ração do Bryan, Mercado, Farmácia...'}"`)}<div class="form-grid">${field('Valor (R$)','amount',f.amount!==''?f.amount:'','number','required min="0.01" max="10000000" step="0.01" placeholder="0,00"')}${field('Data','date',f.date||dateKey(),'date','required')}</div><div class="form-grid"><label class="field"><span>Categoria (você pode alterar ou digitar uma nova)</span><input type="text" name="category" list="finance-cat-list" value="${e(f.category||(isIncome?'Salário':'Ração do Bryan'))}" required maxlength="100" placeholder="Ex.: Ração do Bryan" /><datalist id="finance-cat-list">${categorySuggestions.map(c=>`<option value="${e(c)}">`).join('')}</datalist></label><label class="field"><span>Forma de ${isIncome?'recebimento':'pagamento'}</span><select name="payment_method" id="finance-payment-method">${isIncome?`<option value="pix" ${f.payment_method==='pix'?'selected':''}>Pix / Transferência</option><option value="debito" ${f.payment_method==='debito'?'selected':''}>Depósito em Conta</option><option value="outro" ${f.payment_method==='outro'?'selected':''}>VR / Benefício</option><option value="dinheiro" ${f.payment_method==='dinheiro'?'selected':''}>Dinheiro</option>`:`<option value="credito" ${f.payment_method==='credito'?'selected':''}>Cartão de Crédito</option><option value="debito" ${f.payment_method==='debito'?'selected':''}>Cartão de Débito</option><option value="pix" ${f.payment_method==='pix'?'selected':''}>Pix</option><option value="dinheiro" ${f.payment_method==='dinheiro'?'selected':''}>Dinheiro</option><option value="outro" ${f.payment_method==='outro'?'selected':''}>Outro</option>`}</select></label></div>${!isIncome?`<div class="form-grid"><label class="field"><span>Qual cartão foi usado? (se for cartão)</span><input type="text" name="card_name" list="cards-list" value="${e(f.card_name)}" maxlength="100" placeholder="Ex.: Nubank, Itaú, Inter..." /><datalist id="cards-list">${defaultCards.map(c=>`<option value="${e(c)}">`).join('')}</datalist></label><label class="field"><span>Área Pix — Para quem vai esse Pix?</span><input type="text" name="pix_recipient" value="${e(f.pix_recipient)}" maxlength="120" placeholder="Ex.: Veterinário do Bryan, Chave Pix, etc." /></label></div>`:`<div class="form-grid"><label class="field"><span>Identificação / conta / destino (opcional)</span><input type="text" name="pix_recipient" value="${e(f.pix_recipient)}" maxlength="120" placeholder="Ex.: Conta Nubank, Cartão VR, Pix..." /></label></div>`}<label class="field"><span>Status (${isIncome?'recebido ou previsto':'pago ou pendente'})</span><select name="status">${isIncome?`<option value="pago" ${f.status==='pago'?'selected':''}>Recebido (já entrou)</option><option value="pendente" ${f.status==='pendente'?'selected':''}>Previsto / Pendente</option>`:`<option value="pendente" ${f.status==='pendente'?'selected':''}>Pendente (a pagar)</option><option value="pago" ${f.status==='pago'?'selected':''}>Pago</option>`}</select></label>${textarea('Observações (opcional)','notes',f.notes)}${formFoot(isIncome?'Salvar entrada com carinho':'Salvar gasto com carinho')}</form>`);
+  const isCardMethod=!isIncome && (f.payment_method==='credito'||f.payment_method==='debito');
+  const isPixMethod=!isIncome && f.payment_method==='pix';
+
+  openDialog(`${dialogHead(isIncome?'ENTRADA DE RENDA':'SAÍDA / GASTO',id?(isIncome?'Editar entrada':'Editar gasto'):(isIncome?'Nova entrada de renda':'Novo gasto'))}<form data-form="finance" data-id="${id||''}"><input type="hidden" name="type" value="${f.type}" />${field(isIncome?'Origem da renda / Título':'O que foi esse gasto?','title',f.title,'text',`required maxlength="120" placeholder="${isIncome?'Ex.: Salário, Pagamento da Maria, VR...':'Ex.: Ração do Bryan, Mercado, Farmácia...'}"`)}<div class="form-grid">${field('Valor (R$)','amount',f.amount!==''?f.amount:'','number','required min="0.01" max="10000000" step="0.01" placeholder="0,00"')}${field('Data','date',f.date||defaultDate,'date','required')}</div><div class="form-grid"><label class="field"><span>Categoria (você pode alterar ou digitar uma nova)</span><input type="text" name="category" list="finance-cat-list" value="${e(f.category||(isIncome?'Salário':'Ração do Bryan'))}" required maxlength="100" placeholder="Ex.: Ração do Bryan" /><datalist id="finance-cat-list">${categorySuggestions.map(c=>`<option value="${e(c)}">`).join('')}</datalist></label><label class="field"><span>Forma de ${isIncome?'recebimento':'pagamento'}</span><select name="payment_method" id="finance-payment-method">${isIncome?`<option value="pix" ${f.payment_method==='pix'?'selected':''}>Pix / Transferência</option><option value="debito" ${f.payment_method==='debito'?'selected':''}>Depósito em Conta</option><option value="outro" ${f.payment_method==='outro'?'selected':''}>VR / Benefício</option><option value="dinheiro" ${f.payment_method==='dinheiro'?'selected':''}>Dinheiro</option>`:`<option value="credito" ${f.payment_method==='credito'?'selected':''}>Cartão de Crédito</option><option value="debito" ${f.payment_method==='debito'?'selected':''}>Cartão de Débito</option><option value="pix" ${f.payment_method==='pix'?'selected':''}>Pix</option><option value="dinheiro" ${f.payment_method==='dinheiro'?'selected':''}>Dinheiro</option><option value="outro" ${f.payment_method==='outro'?'selected':''}>Outro</option>`}</select></label></div>${!isIncome?`<div id="finance-card-box" style="display:${isCardMethod?'block':'none'}"><label class="field"><span>Qual cartão foi usado? Toque para escolher:</span><div class="card-presets-row" role="group" aria-label="Cartões sugeridos">${defaultCards.map(c=>`<button type="button" class="card-preset-pill ${f.card_name===c?'chosen':''}" data-action="preset-card" data-card="${e(c)}">${e(c)}</button>`).join('')}</div><input type="text" id="finance-card-input" name="card_name" list="cards-list" value="${e(f.card_name)}" maxlength="100" placeholder="Ex.: Nubank, Itaú, Inter..." /><datalist id="cards-list">${defaultCards.map(c=>`<option value="${e(c)}">`).join('')}</datalist></label></div><div id="finance-pix-box" style="display:${isPixMethod?'block':'none'}"><label class="field"><span>Área Pix — Para quem vai esse Pix?</span><input type="text" name="pix_recipient" value="${e(f.pix_recipient)}" maxlength="120" placeholder="Ex.: Veterinário do Bryan, Chave Pix, etc." /></label></div>`:''}${isIncome?`<div class="form-grid"><label class="field"><span>Identificação / conta / destino (opcional)</span><input type="text" name="pix_recipient" value="${e(f.pix_recipient)}" maxlength="120" placeholder="Ex.: Conta Nubank, Cartão VR, Pix..." /></label></div>`:''}<label class="field"><span>Status (${isIncome?'recebido ou previsto':'pago ou pendente'})</span><select name="status">${isIncome?`<option value="pago" ${f.status==='pago'?'selected':''}>Recebido (já entrou)</option><option value="pendente" ${f.status==='pendente'?'selected':''}>Previsto / Pendente</option>`:`<option value="pendente" ${f.status==='pendente'?'selected':''}>Pendente (a pagar)</option><option value="pago" ${f.status==='pago'?'selected':''}>Pago</option>`}</select></label>${textarea('Observações (opcional)','notes',f.notes)}${formFoot(isIncome?'Salvar entrada com carinho':'Salvar gasto com carinho')}</form>`);
 }
 function authForm(mode='login',notice='') {state.authMode='login';state.authNotice=notice;render();}
 
@@ -235,9 +398,14 @@ async function action(name,id,button) {
   if(name==='new-income') return financeForm(null,'income');
   if(name==='edit-finance'){const f=state.data.finances.find(f=>f.id===id);return financeForm(id,f?.type||'expense');}
   if(name==='toggle-finance-status'){const f=state.data.finances.find(f=>f.id===id);if(!f)return;const nextStatus=f.status==='pago'?'pendente':'pago';await persist('finances',{status:nextStatus},id);render();const isExp=f.type==='expense';return toast(nextStatus==='pago'?(isExp?'Gasto marcado como pago! 💜':'Entrada marcada como recebida! 💜'):'Marcado como pendente.');}
-  if(name==='prev-finance-month'){const [y,m]=state.financeMonth.split('-').map(Number);state.financeMonth=monthKey(new Date(y,m-2,1));return render();}
-  if(name==='next-finance-month'){const [y,m]=state.financeMonth.split('-').map(Number);state.financeMonth=monthKey(new Date(y,m,1));return render();}
+  if(name==='set-finance-month'){state.financeMonth=button.dataset.month;return render();}
+  if(name==='prev-finance-month'){state.financeMonth=shiftMonth(state.financeMonth,-1);return render();}
+  if(name==='next-finance-month'){state.financeMonth=shiftMonth(state.financeMonth,1);return render();}
   if(name==='current-finance-month'){state.financeMonth=monthKey(new Date());return render();}
+  if(name==='select-card'){state.financeFilter='cartao';state.financeCard=button.dataset.card||'todos';return render();}
+  if(name==='open-card-view'){state.financeFilter='cartao';state.financeCard='todos';return render();}
+  if(name==='preset-card'){const card=button.dataset.card;const input=dialog.querySelector('#finance-card-input');if(input){input.value=card;input.dispatchEvent(new Event('input',{bubbles:true}));}dialog.querySelectorAll('.card-preset-pill').forEach(b=>b.classList.toggle('chosen',b.dataset.card===card));return;}
+  if(name==='pay-all-card'){const card=button.dataset.card||'todos';const pending=(state.data.finances||[]).filter(f=>f.date&&f.date.startsWith(state.financeMonth)&&(f.payment_method==='credito'||f.payment_method==='debito')&&f.status==='pendente').filter(f=>card==='todos'||(f.card_name||'Outro cartão').trim().toLowerCase()===card.trim().toLowerCase());if(!pending.length) return toast('Todos os gastos deste cartão já estão quitados! 💜');for(const item of pending){await persist('finances',{status:'pago'},item.id);}render();return toast(`Gastos de ${card==='todos'?'todos os cartões':card} marcados como pagos! 💜`);}
   if(name.startsWith('delete-')) return confirmDelete(name.slice(7),id);
   if(name==='auth') return authForm();
   if(name==='settings'){settings();checkNotificationHealth().catch(()=>{});return;}
@@ -276,7 +444,7 @@ document.addEventListener('click',async event=> {
   const filter=event.target.closest('[data-filter]');if(filter){state.filter=filter.dataset.filter;render();return;}
   const memoryFilter=event.target.closest('[data-memory-filter]');if(memoryFilter){state.memoryFilter=memoryFilter.dataset.memoryFilter;render();return;}
   const workoutFilter=event.target.closest('[data-workout-filter]');if(workoutFilter){state.workoutFilter=workoutFilter.dataset.workoutFilter;render();return;}
-  const financeFilter=event.target.closest('[data-finance-filter]');if(financeFilter){state.financeFilter=financeFilter.dataset.financeFilter;render();return;}
+  const financeFilter=event.target.closest('[data-finance-filter]');if(financeFilter){state.financeFilter=financeFilter.dataset.financeFilter;if(state.financeFilter!=='cartao')state.financeCard='todos';render();return;}
   const day=event.target.closest('[data-date]');if(day){state.selectedDate=day.dataset.date;state.filter='todos';render();return;}
   const auth=event.target.closest('[data-auth-mode]');if(auth){authForm(auth.dataset.authMode);return;}
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
@@ -291,6 +459,15 @@ dialog.addEventListener('cancel',event=>{event.preventDefault();closeDialog();})
 // Toques no fundo nunca descartam uma edição, principalmente no teclado do celular.
 dialog.addEventListener('change',event=> {
   if(event.target.closest('form'))editorDirty=true;
+  if(event.target.id==='finance-payment-method') {
+    const val=event.target.value;
+    const isCard=val==='credito'||val==='debito';
+    const isPix=val==='pix';
+    const cardBox=dialog.querySelector('#finance-card-box');
+    const pixBox=dialog.querySelector('#finance-pix-box');
+    if(cardBox) cardBox.style.display=isCard?'block':'none';
+    if(pixBox) pixBox.style.display=isPix?'block':'none';
+  }
   if(event.target.name==='photo' && event.target.files[0]) {
     delete event.target.form.dataset.uploadedPath;
     if(photoPreview)URL.revokeObjectURL(photoPreview);photoPreview=URL.createObjectURL(event.target.files[0]);

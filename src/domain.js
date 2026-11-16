@@ -35,8 +35,22 @@ export class RequestGuard {
 }
 export const dayNames=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 export const formatDate=(date,options={day:'2-digit',month:'short'})=>new Intl.DateTimeFormat('pt-BR',options).format(new Date(date));
-export const dateKey=(d=new Date())=>toLocalInput(d).slice(0,10);
-export const monthKey=(d=new Date())=>toLocalInput(d).slice(0,7);
+export function dateKey(d=new Date()) {
+  if(typeof d==='string'&&/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10);
+  return toLocalInput(d).slice(0,10);
+}
+export function monthKey(d=new Date()) {
+  if(typeof d==='string'&&/^\d{4}-\d{2}/.test(d)) return d.slice(0,7);
+  return toLocalInput(d).slice(0,7);
+}
+export function shiftMonth(monthStr='',delta=0) {
+  if(!monthStr||!/^\d{4}-\d{2}$/.test(monthStr)) monthStr=monthKey(new Date());
+  const [y,m]=monthStr.split('-').map(Number);
+  const total=(y*12+(m-1))+delta;
+  const targetYear=Math.floor(total/12);
+  const targetMonth=(total%12)+1;
+  return `${targetYear}-${String(targetMonth).padStart(2,'0')}`;
+}
 export function formatBRL(value=0) {
   return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value)||0);
 }
