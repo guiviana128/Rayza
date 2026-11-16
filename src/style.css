@@ -136,9 +136,9 @@
 .finance-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .finance-title-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .finance-top h3{font-size:13px;font-weight:550;color:var(--ink);overflow-wrap:anywhere}
-.finance-amount{font-size:20px;font-weight:700;white-space:nowrap;letter-spacing:-.4px}
-.finance-amount.expense{color:#8b2b52}
-.finance-amount.income{color:#236d35}
+.finance-amount{font-size:22px;font-weight:700;white-space:nowrap;letter-spacing:-.4px}
+.finance-amount.expense{color:#8b224e}
+.finance-amount.income{color:#1f7334}
 .finance-category{font-size:9px;padding:3px 8px;border-radius:5px;background:#f0e8f7;color:#8f6ba8;font-weight:500;white-space:nowrap}
 .finance-category.income-tag{background:#edf3ea;color:#5a7c4f}
 .finance-meta{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:9px;font-size:10px;color:#9b88a8}
@@ -157,7 +157,7 @@
   .finance-period-title h3{font-size:19px}
   .finance-month-pills{width:100%;overflow-x:auto;padding-bottom:4px}
   .finance-card{padding:14px 12px;gap:10px}
-  .finance-amount{font-size:17px}
+  .finance-amount{font-size:19px;font-weight:700}
   .finance-status-btn{font-size:9px;padding:5px 8px}
   .category-summary-box{padding:12px 14px}
   .category-summary-chip{font-size:9px;padding:5px 9px}
