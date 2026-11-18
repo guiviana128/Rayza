@@ -8,7 +8,7 @@ export default async function handler(req,res) {
     requireUser(req);requireOrigin(req);
     if(req.method==='GET'){
       const {data}=await repository.read();
-      return res.status(200).json(Object.fromEntries(['appointments','memories','workouts','logs','finances'].map(k=>[k,(data[k]||[]).map(row=>({...publicRow(row),...(k==='memories'?{url:`/api/photo?path=${encodeURIComponent(row.photo_path)}`}:{})}))])));
+      return res.status(200).json(Object.fromEntries(['appointments','memories','workouts','logs','finances','letters'].map(k=>[k,(data[k]||[]).map(row=>({...publicRow(row),...(k==='memories'?{url:`/api/photo?path=${encodeURIComponent(row.photo_path)}`}:{})}))])));
     }
     if(!['POST','PATCH','DELETE'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
     const body=jsonBody(req);if(JSON.stringify(body).length>100000)throw fail('Registro muito grande.');

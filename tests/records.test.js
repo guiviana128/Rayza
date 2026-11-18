@@ -1,5 +1,16 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';
 import {saveRecord,deleteRecord,publicRow} from '../server/records.js';import {emptyDatabase} from '../server/repository-core.js';
+test('saving a letter preserves old data and repeated imports preserve the original',()=>{
+  const db=emptyDatabase();
+  db.memories=[{id:'existing-photo'}];
+  const id=randomUUID();
+  saveRecord(db,'letters',{title:'sentir saudade',body:'Um abraço seu.'},id,true);
+  saveRecord(db,'letters',{title:'Outro título',body:'Outro texto.'},id,true);
+  assert.equal(db.letters.length,1);
+  assert.equal(db.letters[0].body,'Um abraço seu.');
+  assert.deepEqual(db.memories,[{id:'existing-photo'}]);
+  assert.throws(()=>saveRecord(db,'letters',{title:'',body:'Vazia'},randomUUID(),true));
+});
 test('appointment revisions cancel old reminders on edit and completion',()=>{const db=emptyDatabase(),id=randomUUID();saveRecord(db,'appointments',{title:'Plano',starts_at:'2030-01-01T12:00:00Z',reminder_minutes:15},id,true);const first=db.appointments[0]._revision;saveRecord(db,'appointments',{starts_at:'2030-01-02T12:00:00Z'},id);assert.notEqual(db.appointments[0]._revision,first);saveRecord(db,'appointments',{completed:true},id);assert.equal(db.appointments[0].completed,true);assert.equal('_revision'in publicRow(db.appointments[0]),false);});
 test('patch cannot resurrect a record deleted on another device',()=>{const db=emptyDatabase(),id=randomUUID();saveRecord(db,'appointments',{title:'Plano',starts_at:'2030-01-01T12:00:00Z',reminder_minutes:15},id,true);deleteRecord(db,'appointments',id);assert.throws(()=>saveRecord(db,'appointments',{title:'Novo'},id),/excluído/);});
 test('workout history is unique per day and removed with its workout',()=>{const db=emptyDatabase(),id=randomUUID();saveRecord(db,'workouts',{title:'A',days:[1],exercises:[{name:'Exercício',sets:3,reps:'12',weight:'',rest:60}]},id,true);saveRecord(db,'workout_logs',{workout_id:id,done_on:'2030-01-01'},randomUUID(),true);saveRecord(db,'workout_logs',{workout_id:id,done_on:'2030-01-01'},randomUUID(),true);assert.equal(db.logs.length,1);deleteRecord(db,'workouts',id);assert.equal(db.logs.length,0);});

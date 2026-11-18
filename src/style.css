@@ -226,6 +226,71 @@
   line-height: 1.55;
 }
 
+.letter-composer {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+}
+
+.letter-composer > a,
+.letter-composer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--deep);
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+.letter-panel {
+  padding: clamp(16px, 4vw, 32px);
+}
+
+.letter-panel :is(h1, h2) {
+  font: 400 clamp(32px, 6vw, 48px)/1.1 var(--serif);
+  color: var(--deep);
+}
+
+.letter-panel > p {
+  margin-block: 12px 20px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.letter-composer .field :is(input, textarea) { font-size: 16px; }
+.letter-composer .btn { min-height: 44px; }
+.letter-link { margin-top: 24px; }
+
+.letter-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.letter-envelope {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f6eef9;
+  color: var(--deep);
+  font-size: 15px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.letter-envelope > span { flex: 1; min-width: 0; }
+.letter-envelope .icon { flex-shrink: 0; }
+.letter-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.7; }
+
 @media(max-width:768px) {
   main {
     padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));

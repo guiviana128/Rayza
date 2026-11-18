@@ -1,6 +1,8 @@
 import {randomUUID} from 'node:crypto';
 import {validateAppointment,validateWorkout,validateFinance} from '../src/domain.js';
+import {validateLetter} from '../src/letters.js';
 const fields={appointments:['title','starts_at','category','location','notes','reminder_minutes','completed'],memories:['title','taken_on','caption','photo_path','favorite'],workouts:['title','focus','days','duration','notes','exercises'],workout_logs:['workout_id','done_on'],finances:['title','amount','type','date','category','payment_method','card_name','pix_recipient','status','notes']};
+fields.letters=['title','body'];
 const idPattern=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const fail=(message,status=400)=>Object.assign(Error(message),{status});
 export function tableKey(table){if(!Object.hasOwn(fields,table))throw fail('Tipo de registro inválido.');return table==='workout_logs'?'logs':table;}
@@ -25,6 +27,10 @@ export function saveRecord(database,table,patch,id,create=false) {
     if(typeof row.title!=='string'||!row.title.trim()||row.title.length>120||typeof row.caption!=='string'||row.caption.length>1000||!/^\d{4}-\d{2}-\d{2}$/.test(row.taken_on)||!/^rayza\/photos\/[a-f0-9-]+\.jpg$/.test(row.photo_path||'')||typeof row.favorite!=='boolean')throw fail('Confira a foto, o título e a data da lembrança.');
   } else if(table==='finances') {
     try{validateFinance(row);}catch(error){throw fail(error.message);}
+  } else if(table==='letters') {
+    if(old)return publicRow(old);
+    try{validateLetter(row);}catch(error){throw fail(error.message);}
+    row.title=row.title.trim();row.body=row.body.trim();
   } else {
     if(!database.workouts.some(w=>w.id===row.workout_id)||!/^\d{4}-\d{2}-\d{2}$/.test(row.done_on))throw fail('Treino ou data inválidos.');
     const existing=database.logs.find(l=>l.workout_id===row.workout_id&&l.done_on===row.done_on);if(existing)return publicRow(existing);

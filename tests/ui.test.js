@@ -13,6 +13,35 @@ async function submit(w,values) {
   const form=w.document.querySelector('dialog form');for(const [name,value] of Object.entries(values))form.querySelector(`[name="${name}"]`).value=value;
   form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await tick();
 }
+
+test('letters: compose without login, then save and open with Rayza’s account',async()=> {
+  const b=backend();
+  const sender=(await page(b,{url:'https://rayza.test/?escrever-cartinha'})).window;
+  let link;
+  try {
+    const form=sender.document.querySelector('[data-form="letter-compose"]');
+    form.elements.title.value='sentir saudade';
+    form.elements.body.value='Meu abraço está guardado pra você. <b>Um beijo!</b>';
+    form.dispatchEvent(new sender.Event('submit',{bubbles:true,cancelable:true}));
+    link=form.elements.share_link.value;
+    assert.ok(link.startsWith('https://rayza.test/#cartinha='));
+    assert.equal(b.tables.letters,undefined);
+  } finally {sender.close();}
+
+  b.session={user:{id:'rayza',user_metadata:{name:'Rayza'}}};
+  const recipient=(await page(b,{url:link})).window;
+  try {
+    assert.match(recipient.document.querySelector('.letter-envelope').textContent,/sentir saudade/);
+    assert.doesNotMatch(recipient.document.body.textContent,/Meu abraço/);
+    await click(recipient,'[data-action="save-letter"]');
+    assert.equal(recipient.location.hash,'#cartinhas');
+    assert.equal(b.tables.letters.length,1);
+    await click(recipient,'[data-action="open-letter"]');
+    const body=recipient.document.querySelector('.letter-body');
+    assert.match(body.textContent,/<b>Um beijo!<\/b>/);
+    assert.equal(body.querySelector('b'),null);
+  } finally {recipient.close();}
+});
 test('appointments: create, edit, complete and delete; user HTML renders as text',async()=> {
   const dom=await makePage(),w=dom.window;
   try {

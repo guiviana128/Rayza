@@ -5,13 +5,16 @@ import {db,configured,checked,loadData,saveRow,deleteRow,preparePhoto,uploadPhot
 import {authView} from './auth-view.js';
 import {enablePush,disablePush,pushEnabled,testPush} from './push.js';
 import {workoutMessage} from './workout-messages.js';
+import {letterLink,readLetter} from './letters.js';
 
 const paths={calendar:'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',image:'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm-1 13 5-5 5 5 3-3 5 5M8 7h.01',dumbbell:'m6.5 6.5 11 11M4 9l5-5M2 7l5-5M15 20l5-5M17 22l5-5',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',plus:'M12 5v14M5 12h14',arrow:'M5 12h14m-5-5 5 5-5 5',chevron:'m9 5 7 7-7 7',clock:'M12 8v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',check:'m5 12 4 4L19 6',edit:'m16 3 5 5-12 12-6 1 1-6L16 3Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',close:'m6 6 12 12M6 18 18 6',logout:'M10 4H4v16h6m4-12 4 4-4 4M8 12h13',spark:'m12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6L12 2Z',upload:'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',user:'M20 21v-2a7 7 0 0 0-14 0v2M17 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',lock:'M5 10h14v11H5V10Zm3 0V6a4 4 0 0 1 8 0v4',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',wallet:'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2H2V6Zm0 4h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8Zm13 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z'};
 const icon=(name,cls='')=>`<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.spark}"/></svg>`;
 const flower=`<svg class="flower" viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor">${Array.from({length:8},(_,i)=>`<ellipse cx="50" cy="27" rx="11" ry="22" transform="rotate(${i*45} 50 50)"/>`).join('')}</g><circle cx="50" cy="50" r="10" fill="#e4c982"/></svg>`;
 const categories={pessoal:['Pessoal','heart'],saude:['Autocuidado','spark'],estudo:['Estudos','calendar'],encontro:['A dois','heart'],outro:['Outros','calendar']};
 const tabs={compromissos:['Compromissos','calendar','Seu tempo, com mais leveza.'],lembrancas:['Lembranças','image','Alguns momentos merecem ficar.'],treinos:['Treinos','dumbbell','Um carinho por você, a cada movimento.'],financeiro:['Financeiro','wallet','Cuidando do que constrói seus sonhos.']};
-const emptyData=()=>({appointments:[],memories:[],workouts:[],logs:[],finances:[]});
+tabs.cartinhas=['Abre quando…','heart','Um carinho para abrir na hora certa.'];
+const composingLetter=new URLSearchParams(location.search).has('escrever-cartinha');
+const emptyData=()=>({appointments:[],memories:[],workouts:[],logs:[],finances:[],letters:[]});
 let state={user:null,data:emptyData(),initializing:true,authMode:'login',authNotice:'',syncError:'',lastSynced:null,tab:location.hash.slice(1) in tabs?location.hash.slice(1):'compromissos',filter:'proximos',memoryFilter:'todas',workoutFilter:'todos',financeFilter:'todos',financeCard:'todos',financeMonth:monthKey(new Date()),calendar:new Date(new Date().getFullYear(),new Date().getMonth(),1),selectedDate:null,notify:false,loading:false,search:''};
 let deferredInstall=null, photoPreview=null, editorDirty=false,saving=false,authSubscription=null,authBusy=false;
 const requests=new RequestGuard();
@@ -22,7 +25,11 @@ function fail(error) {console.error(error?.name||'Operation failed'); const mess
 function empty(type,title,text,action,label) {return `<div class="empty">${icon(type)}<h3>${title}</h3><p>${text}</p>${action?`<button class="btn primary" data-action="${action}">${icon('plus')}${label}</button>`:''}</div>`;}
 function headerButton(action,text,ico='plus',cls='primary') {return `<button class="btn ${cls}" data-action="${action}">${icon(ico)}<span>${text}</span></button>`;}
 function render() {
-  if(!state.user||state.authMode==='update'){app.innerHTML=authView({configured,initializing:state.initializing,mode:state.authMode,notice:state.authNotice,icon,flower,field,username:publicConfig.accountUsername||'rayza.huang'});return;}
+  if(composingLetter){app.innerHTML=letterComposer();return;}
+  if(!state.user||state.authMode==='update'){
+    const notice=state.authNotice||(location.hash.startsWith('#cartinha=')?'Chegou uma cartinha pra você. Entre na sua conta para guardar.':'');
+    app.innerHTML=authView({configured,initializing:state.initializing,mode:state.authMode,notice,icon,flower,field,username:publicConfig.accountUsername||'rayza.huang'});return;
+  }
   const total=state.data.appointments.filter(a=>!a.completed && dateKey(a.starts_at)===dateKey()).length;
   app.innerHTML=`
     <aside class="sidebar">
@@ -37,11 +44,41 @@ function render() {
       <div class="sync-banner ${state.syncError?'sync-error':''}" role="status"><span>${icon(state.syncError?'bell':'check')}${state.syncError?e(state.syncError):state.lastSynced?'Dados salvos na sua conta · sincronizados entre seus aparelhos':'Carregando os dados da sua conta…'}</span><button data-action="refresh-data">Atualizar ${icon('arrow')}</button></div>
       <main id="main" tabindex="-1">
         <section class="welcome"><div><div class="eyebrow"><span></span> FEITO DE DIAS & PEQUENAS FELICIDADES</div><h1>Que bom ter você aqui, <em>Rayza.</em> <span class="tiny-star">✧</span></h1><p>Um lugar para seus planos, suas histórias e tudo que faz você florescer.</p></div><div class="welcome-art">${flower}<span>com amor, para você</span></div></section>
-        ${state.tab==='compromissos'?appointmentsView():state.tab==='lembrancas'?memoriesView():state.tab==='treinos'?workoutsView():financesView()}
+        ${state.tab==='compromissos'?appointmentsView():state.tab==='lembrancas'?memoriesView():state.tab==='treinos'?workoutsView():state.tab==='cartinhas'?lettersView():financesView()}
         <footer class="page-footer"><span>Feito para guardar o que importa.</span><span>com amor ${icon('heart')} para Rayza</span></footer>
       </main>
       <nav class="mobile-nav" aria-label="Navegação no celular">${Object.entries(tabs).map(([key,[label,ico]])=>`<button data-tab="${key}" class="${state.tab===key?'active':''}" ${state.tab===key?'aria-current="page"':''}>${icon(ico)}<span>${label}</span></button>`).join('')}</nav>
     </div>`;
+}
+
+function letterComposer() {
+  return `<main id="main" class="letter-composer"><a href="/">Voltar ao Rayza</a><section class="panel letter-panel">
+    <h1>Escrever uma cartinha</h1>
+    <p>Escreva seu recado e mande o link só pra quem vai receber. Quem tiver o link pode acessar o texto.</p>
+    <form data-form="letter-compose">
+      ${field('Abre quando…','title','','text','required maxlength="80" placeholder="Ex.: sentir saudade de mim"')}
+      <label class="field"><span>Sua cartinha</span><textarea name="body" rows="7" required maxlength="1200"></textarea></label>
+      <p class="form-error" role="alert"></p>
+      <button class="btn primary" type="submit">Criar link da cartinha</button>
+      <div class="letter-link" hidden>
+        <label class="field"><span>Link pra compartilhar</span><input name="share_link" type="url" readonly></label>
+        <button class="btn soft" type="button" data-action="copy-letter">Copiar link</button>
+      </div>
+    </form>
+  </section></main>`;
+}
+
+function lettersView() {
+  let incoming, error;
+  try{incoming=readLetter(location.hash);}catch(problem){error=problem.message;}
+  const letters=state.data.letters||[];
+  return `<section class="panel letter-panel"><h2>Abre quando…</h2><p>Cartinhas pra ler no seu tempo.</p>
+    ${error?`<p class="form-error" role="alert">${e(error)}</p>`:''}
+    ${incoming?`<article class="letter-envelope"><h3>Abre quando… ${e(incoming.title)}</h3>
+    ${headerButton('save-letter','Guardar na minha conta','heart')}</article>`:''}
+    ${letters.length?`<ul class="letter-list">${[...letters].reverse().map(letter=>`<li><button class="letter-envelope" type="button" data-action="open-letter" data-id="${e(letter.id)}">${icon('heart')}<span>Abre quando… ${e(letter.title)}</span>${icon('chevron')}</button></li>`).join('')}</ul>`:incoming?'':'<p>Suas cartinhas vão aparecer aqui quando você guardar um link recebido.</p>'}
+    <a href="/?escrever-cartinha" class="letter-composer-link">Página para escrever cartinhas</a>
+  </section>`;
 }
 function statsCard(ico,value,label,extra='') {return `<div class="stat-card"><span class="stat-icon ${extra}">${icon(ico)}</span><div><strong>${value}</strong><span>${label}</span></div><span class="stat-decoration">✧</span></div>`;}
 function appointmentsView() {
@@ -350,11 +387,11 @@ async function persist(table,row,id) {
   if(!state.user)throw Error('Entre na sua conta antes de salvar.');
   requests.invalidate();state.loading=false;
   const user=state.user;
-  const names={appointments:'appointments',memories:'memories',workouts:'workouts',workout_logs:'logs',finances:'finances'};
+  const names={appointments:'appointments',memories:'memories',workouts:'workouts',workout_logs:'logs',finances:'finances',letters:'letters'};
   const saved=await saveRow(table,row,user,id);
   if(state.user?.id!==user.id) throw Error('A sessão mudou. Entre novamente.');
   requests.invalidate();
-  const bucket=state.data[names[table]];
+  const bucket=state.data[names[table]]??=[];
   const index=bucket.findIndex(x=>x.id===saved.id);if(index>=0) bucket[index]={...bucket[index],...saved};else bucket.push(saved);
   state.lastSynced=new Date();state.syncError='';
   return saved;
@@ -390,6 +427,29 @@ async function refresh({quiet=false}={}) {
   }
 }
 async function action(name,id,button) {
+  if(name==='copy-letter'){
+    const input=button.form.elements.share_link;
+    input.select();
+    try{await navigator.clipboard.writeText(input.value);toast('Link copiado.');}
+    catch{toast('Link selecionado. Use a opção de copiar do aparelho.');}
+    return;
+  }
+  if(name==='save-letter'){
+    const letter=readLetter(location.hash);
+    if(!letter||saving)return;
+    saving=true;
+    try{
+      await persist('letters',letter);
+      history.replaceState(null,'','#cartinhas');
+      render();toast('Cartinha guardada no seu cantinho. 💜');
+    }finally{saving=false;}
+    return;
+  }
+  if(name==='open-letter'){
+    const letter=state.data.letters?.find(item=>item.id===id);
+    if(letter)openDialog(`${dialogHead('ABRE QUANDO…',e(letter.title))}<p class="letter-body">${e(letter.body)}</p>`);
+    return;
+  }
   if(name==='close') return closeDialog();
   if(name==='keep-editing'){dialog.querySelector('.discard-prompt')?.remove();return;}
   if(name==='discard-editor')return closeDialog(true);
@@ -494,7 +554,11 @@ document.addEventListener('submit',async event=> {
   dialog.querySelectorAll('.dialog-heading button').forEach(control=>control.disabled=true);
   if(!id&&!form.dataset.createId)form.dataset.createId=crypto.randomUUID();
   try {
-    if(kind==='appointment') {
+    if(kind==='letter-compose'){
+      form.elements.share_link.value=letterLink(location.origin,fd.get('title'),fd.get('body'));
+      form.querySelector('.letter-link').hidden=false;
+      return;
+    } else if(kind==='appointment') {
       const row={title:fd.get('title').trim(),starts_at:new Date(fd.get('starts_at')).toISOString(),category:fd.get('category'),location:fd.get('location').trim(),notes:fd.get('notes').trim(),reminder_minutes:Number(fd.get('reminder_minutes'))};
       if(!id)row.id=form.dataset.createId;
       validateAppointment(row);const saved=await persist('appointments',row,id);
@@ -570,6 +634,7 @@ async function startSession(session) {
   if(!session?.user)throw Error('Não foi possível abrir a sessão. Entre novamente.');
   if(state.user?.id!==session.user.id){state.data=emptyData();state.lastSynced=null;state.selectedDate=null;}
   state.user=session.user;state.authNotice='';state.authMode='login';
+  if(location.hash.startsWith('#cartinha='))state.tab='cartinhas';
   await refresh();
 }
 function resetSession() {
@@ -577,13 +642,17 @@ function resetSession() {
   state.user=null;state.loading=false;state.notify=false;state.data=emptyData();state.lastSynced=null;state.syncError='';state.authMode='login';render();
 }
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;});
-window.addEventListener('hashchange',()=>{if(location.hash.slice(1) in tabs){state.tab=location.hash.slice(1);render();}});
+window.addEventListener('hashchange',()=>{
+  if(location.hash.startsWith('#cartinha=')){state.tab='cartinhas';render();}
+  else if(Object.hasOwn(tabs,location.hash.slice(1))){state.tab=location.hash.slice(1);render();}
+});
 window.addEventListener('online',()=>{if(state.user)refresh({quiet:true}).catch(fail);});
 window.addEventListener('focus',()=>{if(state.user)refresh({quiet:true}).catch(fail);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.user)refresh({quiet:true}).catch(fail);});
 // Sincronização entre aparelhos; notificações são enviadas pelo servidor, não por esse timer.
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')refresh({quiet:true}).catch(fail);},15000);
 async function boot() {
+  if(composingLetter){render();return;}
   state.initializing=true;render();
   try {
     authSubscription?.unsubscribe();
