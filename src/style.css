@@ -210,6 +210,22 @@
 
 .finance-mobile-statement.finance-list { display: none; }
 
+#toast.workout-success {
+  width: max-content;
+  max-width: min(440px, calc(100% - 32px));
+  background: #216342;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.workout-proof-hint {
+  margin-bottom: 16px;
+  color: var(--deep);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 @media(max-width:768px) {
   main {
     padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));

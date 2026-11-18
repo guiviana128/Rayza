@@ -4,6 +4,7 @@ import {deleteMemorySafely} from './operations.js';
 import {db,configured,checked,loadData,saveRow,deleteRow,preparePhoto,uploadPhoto,initializeStore,publicConfig,removePhoto,request,lastSaveWarning} from './store.js';
 import {authView} from './auth-view.js';
 import {enablePush,disablePush,pushEnabled,testPush} from './push.js';
+import {workoutMessage} from './workout-messages.js';
 
 const paths={calendar:'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',image:'M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm-1 13 5-5 5 5 3-3 5 5M8 7h.01',dumbbell:'m6.5 6.5 11 11M4 9l5-5M2 7l5-5M15 20l5-5M17 22l5-5',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',plus:'M12 5v14M5 12h14',arrow:'M5 12h14m-5-5 5 5-5 5',chevron:'m9 5 7 7-7 7',clock:'M12 8v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',check:'m5 12 4 4L19 6',edit:'m16 3 5 5-12 12-6 1 1-6L16 3Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',close:'m6 6 12 12M6 18 18 6',logout:'M10 4H4v16h6m4-12 4 4-4 4M8 12h13',spark:'m12 2 2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6L12 2Z',upload:'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',user:'M20 21v-2a7 7 0 0 0-14 0v2M17 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',download:'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',lock:'M5 10h14v11H5V10Zm3 0V6a4 4 0 0 1 8 0v4',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',wallet:'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v2H2V6Zm0 4h20v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8Zm13 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z'};
 const icon=(name,cls='')=>`<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.spark}"/></svg>`;
@@ -16,7 +17,7 @@ let deferredInstall=null, photoPreview=null, editorDirty=false,saving=false,auth
 const requests=new RequestGuard();
 const app=document.querySelector('#app'),dialog=document.querySelector('#editor');
 let toastTimer;
-function toast(message) {const el=document.querySelector('#toast');el.textContent=message;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),5500);}
+function toast(message,tone='') {const el=document.querySelector('#toast');el.textContent=message;el.classList.toggle('workout-success',tone==='workout');el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),tone==='workout'?9000:5500);}
 function fail(error) {console.error(error?.name||'Operation failed'); const message=error?.message||'Não foi possível concluir. Tente novamente.';toast(/fetch|network/i.test(message)?'Sem conexão no momento. Confira sua internet e tente novamente.':message);}
 function empty(type,title,text,action,label) {return `<div class="empty">${icon(type)}<h3>${title}</h3><p>${text}</p>${action?`<button class="btn primary" data-action="${action}">${icon('plus')}${label}</button>`:''}</div>`;}
 function headerButton(action,text,ico='plus',cls='primary') {return `<button class="btn ${cls}" data-action="${action}">${icon(ico)}<span>${text}</span></button>`;}
@@ -426,8 +427,14 @@ async function action(name,id,button) {
   if(name==='favorite-memory'){const m=state.data.memories.find(m=>m.id===id);await persist('memories',{favorite:!m.favorite},id);render();return;}
   if(name==='log-workout') {
     const log=state.data.logs.find(l=>l.workout_id===id && l.done_on===dateKey());
-    if(log) await remove('workout_logs',log.id);else await persist('workout_logs',{workout_id:id,done_on:dateKey()});
-    render();return toast(log?'Registro de hoje desfeito.':'Você fez algo por você hoje. Que orgulho! 💜');
+    if(log) {
+      await remove('workout_logs',log.id);
+      render();return toast('Registro de hoje desfeito.');
+    }
+    openDialog(`${dialogHead('TREINO DE HOJE','Foto da conquista')}<form data-form="workout-proof" data-id="${id}" data-day="${dateKey()}"><p class="workout-proof-hint">Tire uma foto para confirmar o treino. A foto fica só nesta tela.</p>${field('Foto do treino','photo','','file','accept="image/jpeg,image/png,image/webp" capture="user" required aria-describedby="workout-proof-error"')}<div id="photo-preview" class="photo-preview"></div>${formFoot('Confirmar treino')}</form>`);
+    dialog.querySelector('.form-error').id='workout-proof-error';
+    dialog.querySelector('[name="photo"]').click();
+    return;
   }
   if(name==='enable-push'){if(!state.user)return authForm();await enablePush(state.user);state.notify=true;render();settings();return toast('Este aparelho foi inscrito para receber lembretes. 💜');}
   if(name==='disable-push'){await disablePush(state.user);state.notify=false;render();return settings();}
@@ -508,6 +515,12 @@ document.addEventListener('submit',async event=> {
         }
       } else if(!id) throw Error('Escolha uma foto para sua lembrança.');
       await persist('memories',row,id);toast('Um instante bonito, guardado. 💜');
+    } else if(kind==='workout-proof') {
+      const photo=fd.get('photo');
+      if(!photo?.size)throw Error('Tire uma foto para confirmar o treino.');
+      await preparePhoto(photo);
+      await persist('workout_logs',{workout_id:id,done_on:form.dataset.day});
+      toast(workoutMessage(),'workout');
     } else if(kind==='workout') {
       const row={title:fd.get('title').trim(),focus:fd.get('focus').trim(),duration:Number(fd.get('duration')),days:fd.getAll('days').map(Number),notes:fd.get('notes').trim(),exercises:[...form.querySelectorAll('.exercise-editor')].map(node=>({name:node.querySelector('[name="exercise_name"]').value.trim(),sets:Number(node.querySelector('[name="sets"]').value),reps:node.querySelector('[name="reps"]').value.trim(),weight:node.querySelector('[name="weight"]').value.trim(),rest:Number(node.querySelector('[name="rest"]').value)}))};
       if(!id)row.id=form.dataset.createId;

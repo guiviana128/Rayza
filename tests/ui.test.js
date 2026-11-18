@@ -39,7 +39,15 @@ test('workouts: create multiple exercises, edit and log/unlog a session',async()
     const fields=w.document.querySelectorAll('[name="exercise_name"]');fields[1].value='Movimento B';
     await submit(w,{title:'Treino ajustado'});
     assert.equal(w.document.querySelectorAll('.exercise-list li').length,2);
-    await click(w,'[data-action="log-workout"]');assert.ok(w.document.querySelector('.workout-done'));
+    await click(w,'[data-action="log-workout"]');
+    assert.equal(w.document.querySelector('[name="photo"]').getAttribute('capture'),'user');
+    await submit(w,{});
+    assert.equal(w.document.querySelector('.workout-done'),null);
+    assert.match(w.document.querySelector('.form-error').textContent,/Tire uma foto/);
+    w.__testPhoto=new w.File(['photo'],'treino.jpg',{type:'image/jpeg'});
+    await submit(w,{});
+    assert.ok(w.document.querySelector('.workout-done'));
+    assert.ok(w.document.querySelector('#toast.visible.workout-success'));
     await click(w,'[data-action="log-workout"]');assert.equal(w.document.querySelector('.workout-done'),null);
     await click(w,'[data-action="delete-workout"]');await submit(w,{});assert.equal(w.document.querySelector('.workout-card'),null);
   } finally {w.close();}
