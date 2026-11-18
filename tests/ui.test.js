@@ -22,6 +22,7 @@ test('letters: compose without login, then save and open with Rayza’s account'
     const form=sender.document.querySelector('[data-form="letter-compose"]');
     form.elements.title.value='sentir saudade';
     form.elements.body.value='Meu abraço está guardado pra você. <b>Um beijo!</b>';
+    form.elements.link.value='https://example.org/musica?faixa=1&favorita=sim';
     form.dispatchEvent(new sender.Event('submit',{bubbles:true,cancelable:true}));
     link=form.elements.share_link.value;
     assert.ok(link.startsWith('https://rayza.test/#cartinha='));
@@ -40,6 +41,7 @@ test('letters: compose without login, then save and open with Rayza’s account'
     const body=recipient.document.querySelector('.letter-body');
     assert.match(body.textContent,/<b>Um beijo!<\/b>/);
     assert.equal(body.querySelector('b'),null);
+    assert.equal(recipient.document.querySelector('.letter-composer-link[target="_blank"]').href,'https://example.org/musica?faixa=1&favorita=sim');
   } finally {recipient.close();}
 });
 test('appointments: create, edit, complete and delete; user HTML renders as text',async()=> {

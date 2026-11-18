@@ -10,6 +10,7 @@ test('saving a letter preserves old data and repeated imports preserve the origi
   assert.equal(db.letters[0].body,'Um abraço seu.');
   assert.deepEqual(db.memories,[{id:'existing-photo'}]);
   assert.throws(()=>saveRecord(db,'letters',{title:'',body:'Vazia'},randomUUID(),true));
+  assert.throws(()=>saveRecord(db,'letters',{title:'Título',body:'Texto',link:'javascript:alert(1)'},randomUUID(),true),/link válido/);
 });
 test('appointment revisions cancel old reminders on edit and completion',()=>{const db=emptyDatabase(),id=randomUUID();saveRecord(db,'appointments',{title:'Plano',starts_at:'2030-01-01T12:00:00Z',reminder_minutes:15},id,true);const first=db.appointments[0]._revision;saveRecord(db,'appointments',{starts_at:'2030-01-02T12:00:00Z'},id);assert.notEqual(db.appointments[0]._revision,first);saveRecord(db,'appointments',{completed:true},id);assert.equal(db.appointments[0].completed,true);assert.equal('_revision'in publicRow(db.appointments[0]),false);});
 test('patch cannot resurrect a record deleted on another device',()=>{const db=emptyDatabase(),id=randomUUID();saveRecord(db,'appointments',{title:'Plano',starts_at:'2030-01-01T12:00:00Z',reminder_minutes:15},id,true);deleteRecord(db,'appointments',id);assert.throws(()=>saveRecord(db,'appointments',{title:'Novo'},id),/excluído/);});

@@ -58,6 +58,7 @@ function letterComposer() {
     <form data-form="letter-compose">
       ${field('Abre quando…','title','','text','required maxlength="80" placeholder="Ex.: sentir saudade de mim"')}
       <label class="field"><span>Sua cartinha</span><textarea name="body" rows="7" required maxlength="1200"></textarea></label>
+      ${field('Link extra (opcional)','link','','url','maxlength="1000" placeholder="https://…"')}
       <p class="form-error" role="alert"></p>
       <button class="btn primary" type="submit">Criar link da cartinha</button>
       <div class="letter-link" hidden>
@@ -447,7 +448,7 @@ async function action(name,id,button) {
   }
   if(name==='open-letter'){
     const letter=state.data.letters?.find(item=>item.id===id);
-    if(letter)openDialog(`${dialogHead('ABRE QUANDO…',e(letter.title))}<p class="letter-body">${e(letter.body)}</p>`);
+    if(letter)openDialog(`${dialogHead('ABRE QUANDO…',e(letter.title))}<p class="letter-body">${e(letter.body)}</p>${letter.link?`<a class="letter-composer-link" href="${e(letter.link)}" target="_blank" rel="noopener noreferrer">Abrir link da cartinha</a>`:''}`);
     return;
   }
   if(name==='close') return closeDialog();
@@ -555,7 +556,7 @@ document.addEventListener('submit',async event=> {
   if(!id&&!form.dataset.createId)form.dataset.createId=crypto.randomUUID();
   try {
     if(kind==='letter-compose'){
-      form.elements.share_link.value=letterLink(location.origin,fd.get('title'),fd.get('body'));
+      form.elements.share_link.value=letterLink(location.origin,fd.get('title'),fd.get('body'),fd.get('link'));
       form.querySelector('.letter-link').hidden=false;
       return;
     } else if(kind==='appointment') {

@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {validateAppointment,validateWorkout,validateFinance} from '../src/domain.js';
 import {validateLetter} from '../src/letters.js';
 const fields={appointments:['title','starts_at','category','location','notes','reminder_minutes','completed'],memories:['title','taken_on','caption','photo_path','favorite'],workouts:['title','focus','days','duration','notes','exercises'],workout_logs:['workout_id','done_on'],finances:['title','amount','type','date','category','payment_method','card_name','pix_recipient','status','notes']};
-fields.letters=['title','body'];
+fields.letters=['title','body','link'];
 const idPattern=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const fail=(message,status=400)=>Object.assign(Error(message),{status});
 export function tableKey(table){if(!Object.hasOwn(fields,table))throw fail('Tipo de registro inválido.');return table==='workout_logs'?'logs':table;}
