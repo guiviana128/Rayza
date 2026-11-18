@@ -207,3 +207,155 @@
   .mobile-nav button { min-height:44px; font-size:10px; }
   main { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
 }
+
+.finance-mobile-statement.finance-list { display: none; }
+
+@media(max-width:768px) {
+  main {
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+    padding-bottom: calc(94px + env(safe-area-inset-bottom));
+    scroll-margin-top: 12px;
+  }
+
+  html {
+    scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    height: auto;
+    min-height: 64px;
+    padding-top: env(safe-area-inset-top);
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+  }
+
+  .breadcrumb { font-size: 13px; }
+  .sync-banner { gap: 8px; padding-block: 4px; }
+  .sync-banner, .sync-banner > button { font-size: 12px; }
+
+  .mobile-nav {
+    gap: 4px;
+    padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .mobile-nav button {
+    justify-content: center;
+    min-height: 56px;
+    padding: 4px 2px;
+    border-radius: 10px;
+    color: var(--deep);
+    font-size: 11px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-nav button.active {
+    background: #f0e8f7;
+    color: var(--deep);
+    font-weight: 700;
+  }
+
+  #toast { bottom: calc(82px + env(safe-area-inset-bottom)); }
+
+  .workspace :is(.btn, .filter, .icon-btn, .finance-status-btn, .completion, .favorite, .clickable, .finance-month-tab, .card-pill-btn),
+  .sync-banner > button, .calendar-legend > button, .reminder-card > button,
+  dialog :is(.btn, .icon-btn, .card-preset-pill, .field input, .field select),
+  .auth-card .btn {
+    min-height: 44px;
+  }
+
+  .workspace :is(.icon-btn, .completion, .favorite), dialog .icon-btn { min-width: 44px; }
+  .workspace .card-actions { gap: 8px; opacity: 1; }
+  .workspace .card-actions .icon, .calendar-heading .icon { width: 16px; height: 16px; }
+  .workspace button, dialog button { touch-action: manipulation; }
+
+  .welcome p, .section-heading p, .memory-intro p, .workout-hero p,
+  .reminder-card p, .empty p, .auth-description, .auth-story-copy > p {
+    max-width: 100%;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .section-heading, .routine-toolbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .section-heading > .btn, .gallery-heading > .btn {
+    margin-top: 0;
+    max-width: none;
+  }
+
+  .workspace .btn, .workspace .filter, .routine-toolbar .filter,
+  .gallery-heading .filter, .form-foot .btn {
+    font-size: 13px;
+  }
+
+  .workspace .filters, .agenda-panel > .filters, .gallery-heading .filters {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .date-label, .date-label span, .stat-card > div > span,
+  .appointment-meta, .appointment-note, .reminder-label, .category,
+  .gallery-tools > span, .memory-caption > p, .exercise-list small,
+  .routine-toolbar > span, .workout-badge, .gentle-note, .panel-foot {
+    font-size: 12px;
+  }
+
+  .stat-card { min-width: 0; }
+  .stat-card > div { min-width: 0; overflow-wrap: anywhere; }
+  .stat-card > div > strong { font-size: clamp(16px, 4vw, 22px); }
+  .appointment h3, .exercise-list strong { font-size: 15px; }
+  .appointment-content, .memory-caption, .workout-card { overflow-wrap: anywhere; }
+  .appointment.completed .appointment-content { opacity: 1; }
+  .appointment .card-actions { margin-right: 0; }
+
+  .agenda-layout, .agenda-aside { grid-template-columns: minmax(0, 1fr); }
+  .calendar { padding: 12px 8px; }
+  .calendar-heading { padding-inline: 8px; }
+  .calendar-heading h3 { font-size: 16px; }
+  .calendar-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .calendar-day { width: 100%; height: 44px; font-size: 13px; }
+  .week-label, .calendar-legend, .calendar-legend button, .reminder-card button { font-size: 12px; }
+
+  .gallery { grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+  .gallery .memory-card:nth-child(even) { transform: none; }
+  .memory-actions .text-button { min-height: 44px; font-size: 13px; }
+  .memory-caption > span { font-size: 11px; }
+  .search input { min-width: 0; min-height: 44px; font-size: 16px; }
+
+  dialog {
+    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  }
+
+  .field, .field :is(input, select, textarea), .day-picker { min-width: 0; }
+  .field > span, .auth-card .field > span { font-size: 13px; }
+  .day-picker { flex-wrap: wrap; gap: 8px; }
+  .day-picker label { flex: 1 0 44px; }
+  .day-picker span { display: grid; place-items: center; min-height: 44px; }
+  .form-foot { flex-wrap: wrap; }
+  .auth-story { padding-top: max(28px, env(safe-area-inset-top)); }
+
+  .finance-period-title { width: 100%; justify-content: space-between; gap: 8px; }
+  .finance-period-title h3 { text-align: center; }
+  .finance-month-pills {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+  }
+
+  .finance-month-tab { justify-content: center; padding-inline: 4px; font-size: 12px; }
+  .finance-content { overflow-wrap: anywhere; }
+  .finance-top h3 { font-size: 15px; }
+  .finance-category, .payment-tag { white-space: normal; overflow-wrap: anywhere; }
+  .finance-meta, .finance-status-btn, .finance-category, .payment-tag, .finance-notes,
+  .category-summary-header, .category-summary-chip { font-size: 12px; }
+  .payment-tag { flex-wrap: wrap; max-width: 100%; }
+  .payment-tag strong { min-width: 0; }
+  .finance-table-card .table-responsive { display: none; }
+  .finance-mobile-statement.finance-list { display: flex; margin: 0; padding: 12px; }
+  .finance-mobile-statement .finance-card { min-width: 0; }
+}

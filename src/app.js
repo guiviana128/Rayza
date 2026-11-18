@@ -217,6 +217,9 @@ function cardTableView(items, activeCard, stats, cardMap, totalCard, cardExpense
               </tbody>
             </table>
           </div>
+          <section class="finance-mobile-statement finance-list" aria-label="Extrato do cartão">
+            ${items.map(financeCard).join('')}
+          </section>
         ` : `<div class="empty-card-table">${icon('wallet')}<h3>Nenhum lançamento no cartão</h3><p>Não há lançamentos registrados para ${cardTitle} neste mês.</p></div>`}
 
         <div class="finance-table-footer">
