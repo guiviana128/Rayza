@@ -74,7 +74,15 @@ function lettersView() {
     ${error?`<p class="form-error" role="alert">${e(error)}</p>`:''}
     ${incoming?`<article class="letter-envelope"><h3>Abre quando… ${e(incoming.title)}</h3>
     ${headerButton('save-letter','Guardar na minha conta','heart')}</article>`:''}
-    ${letters.length?`<ul class="letter-list">${[...letters].reverse().map(letter=>`<li><button class="letter-envelope" type="button" data-action="open-letter" data-id="${e(letter.id)}">${icon('heart')}<span>Abre quando… ${e(letter.title)}</span>${icon('chevron')}</button></li>`).join('')}</ul>`:incoming?'':'<p>Suas cartinhas aparecem aqui assim que forem enviadas.</p>'}
+    ${letters.length?`<ul class="letter-list">${[...letters].reverse().map(letter=>`<li>
+      <article class="letter-envelope letter-envelope-sealed">
+        <div class="letter-seal" aria-hidden="true">${icon('heart')}</div>
+        <div class="letter-envelope-content">
+          <h3>Abre quando… ${e(letter.title)}</h3>
+          <button class="btn soft" type="button" data-action="open-letter" data-id="${e(letter.id)}" aria-label="Toque para rasgar: ${e(letter.title)}">Toque para rasgar</button>
+        </div>
+      </article>
+    </li>`).join('')}</ul>`:incoming?'':'<p>Suas cartinhas aparecem aqui assim que forem enviadas.</p>'}
     <button class="btn soft" type="button" data-action="letter-sender-settings">Código para enviar cartinhas</button>
   </section>`;
 }
@@ -454,7 +462,7 @@ async function action(name,id,button) {
   }
   if(name==='open-letter'){
     const letter=state.data.letters?.find(item=>item.id===id);
-    if(letter)openDialog(`${dialogHead('ABRE QUANDO…',e(letter.title))}<p class="letter-body">${e(letter.body)}</p>${letter.link?`<a class="letter-composer-link" href="${e(letter.link)}" target="_blank" rel="noopener noreferrer">Abrir link da cartinha</a>`:''}`);
+    if(letter)openDialog(`${dialogHead('ABRE QUANDO…',e(letter.title))}<div class="letter-paper"><p class="letter-body">${e(letter.body)}</p>${letter.link?`<a class="letter-composer-link" href="${e(letter.link)}" target="_blank" rel="noopener noreferrer">Abrir link da cartinha</a>`:''}</div>`);
     return;
   }
   if(name==='close') return closeDialog();

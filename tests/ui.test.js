@@ -51,6 +51,7 @@ test('letters: Rayza issues a code and a sender publishes directly without loggi
   try {
     assert.match(recipient.document.querySelector('.letter-envelope').textContent,/sentir saudade/);
     assert.doesNotMatch(recipient.document.body.textContent,/Meu abraço/);
+    assert.equal(recipient.document.querySelector('[data-action="open-letter"]').textContent,'Toque para rasgar');
     await click(recipient,'[data-action="open-letter"]');
     const body=recipient.document.querySelector('.letter-body');
     assert.match(body.textContent,/<b>Um beijo!<\/b>/);
