@@ -17,6 +17,17 @@ export async function page(b,{configured=true,url='https://rayza.test/'}={}) {
     if(url==='/api/login'){b.session={user:{id:'rayza',username:'rayza.huang',user_metadata:{name:'Rayza'}}};return reply({session:b.session});}
     if(url==='/api/session'){if(method==='DELETE')b.session=null;return reply({session:b.session});}
     if(url==='/api/subscriptions')return b.failPushRead?reply({error:'Push unavailable'},503):reply({enabled:false});
+    if(url==='/api/letters'){
+      if(body.action==='issue-code'){
+        if(!b.session)return reply({error:'Entre na sua conta.'},401);
+        b.senderCode='a'.repeat(32);
+        return reply({code:b.senderCode});
+      }
+      if(!b.senderCode||body.code!==b.senderCode)return reply({error:'Código de envio inválido.'},401);
+      const letters=(b.tables.letters??=[]);
+      if(!letters.some(letter=>letter.id===body.id))letters.push({id:body.id,title:body.title,body:body.body,link:body.link});
+      return reply({sent:true});
+    }
     if(url==='/api/photo'){
       if(method==='POST'){const path=`rayza/photos/${webcrypto.randomUUID()}.jpg`;(b.uploads??=[]).push(path);return reply({path});}
       (b.removedPhotos??=[]).push(body.path);return reply({removed:true});

@@ -13,13 +13,6 @@ export function validateLetter({title, body, link = ''}) {
   }
 }
 
-export function letterLink(origin, title, body, link = '') {
-  const letter = {id: crypto.randomUUID(), title: title.trim(), body: body.trim()};
-  if (link.trim()) letter.link = link.trim();
-  validateLetter(letter);
-  return new URL('/#cartinha=' + encodeURIComponent(JSON.stringify(letter)), origin).href;
-}
-
 export function readLetter(hash) {
   if (!hash.startsWith('#cartinha=')) return null;
   if (hash.length > 30000) throw Error('O link desta cartinha está incompleto ou inválido.');
